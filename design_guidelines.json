@@ -1,0 +1,217 @@
+{
+  "app_name": "Private Voices",
+  "personality": "6 Glass / Luxe DARK",
+  "personality_one_liner": "A premium, cinematic dark-mode experience using frosted glass, neon accents, and soft layers to make anonymous socialization feel exclusive and secure.",
+  "color": {
+    "surface": "#0F172A",
+    "onSurface": "#F8FAFC",
+    "surfaceSecondary": "#1E293B",
+    "onSurfaceSecondary": "#E2E8F0",
+    "surfaceTertiary": "#334155",
+    "onSurfaceTertiary": "#CBD5E1",
+    "surfaceInverse": "#F8FAFC",
+    "onSurfaceInverse": "#0F172A",
+    "brand": "#06B6D4",
+    "brandPrimary": "#06B6D4",
+    "onBrandPrimary": "#000000",
+    "brandSecondary": "#0284C7",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "rgba(6,182,212,0.15)",
+    "onBrandTertiary": "#06B6D4",
+    "success": "#10B981",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "border": "rgba(255,255,255,0.08)",
+    "borderStrong": "rgba(6,182,212,0.3)",
+    "divider": "rgba(255,255,255,0.05)"
+  },
+  "typography": {
+    "displayFontFamily": "Inter",
+    "textFontFamily": "Inter",
+    "scale": { "sm": 12, "base": 14, "lg": 16, "xl": 20, "2xl": 24 }
+  },
+  "spacing": {
+    "rule": "Generous vertical breathing room. Cards and glass panels should have clear separation.",
+    "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "2xl": 32, "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "pill": 999
+  },
+  "shadow_tier": 2,
+  "navigation": "bottom_tabs",
+  "icon_set": "Ionicons",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use on Bottom Tab Bar, Sticky Headers, FAB, Featured Community Cards, and Modal Scrims.",
+      "Ensure underlying tint is >= 75% surface opacity to guarantee text readability.",
+      "Pair blur with an electric cyan subtle border (0.5pt) to define the edge."
+    ],
+    "dont's": [
+      "Do not blur form fields or dense text feed regions.",
+      "Do not use glass without the underlying tint layer.",
+      "Do not make the entire screen glass."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "haptics": {
+    "events": {
+      "tab_press": "light",
+      "like_post": "medium",
+      "send_message": "success",
+      "toggle_anonymous": "medium",
+      "join_community": "success",
+      "pull_to_refresh": "light"
+    }
+  },
+  "screens": [
+    {
+      "name": "Splash & Onboarding",
+      "purpose": "Introduce the premium, secure vibe and offer instant guest entry.",
+      "states": {
+        "loading": "Animated glowing logo pulsing with cyan aura.",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "Full bleed surface (#0F172A). Onboarding consists of 3 swipeable scenes using cyberpunk/neon abstract background imagery with a dark gradient scrim (top-down fade). Bottom 30% contains typography and a sticky CTA container wrapped in glass. 'Get Started' is the primary button, social auth is secondary/ghost."
+    },
+    {
+      "name": "Anonymous Profile Creation",
+      "purpose": "Frictionless setup of display name and avatar without requiring email.",
+      "states": {
+        "loading": "Spinner over avatar area",
+        "empty": "N/A",
+        "error": "Validation error text below input in error color"
+      },
+      "layout": "Step-by-step single column. Avatar picker is a centered 2-col or 3-col grid of abstract masks in surfaceSecondary chips. Username input uses a glass/surfaceTertiary field with no borders until focused. Bottom pinned 'Continue' button over a glass bar."
+    },
+    {
+      "name": "Home Feed",
+      "purpose": "Central hub mixing text, images, and polls from followed communities.",
+      "states": {
+        "loading": "Skeleton cards with subtle shimmer on surfaceSecondary",
+        "empty": "Illustration of an empty neon city street + 'No echoes here yet.' + 'Explore Communities' CTA.",
+        "error": "Centered error message + 'Retry' button"
+      },
+      "layout": "Sticky glass header (Logo + Search/Notif icons). Vertical ScrollView of Post Cards. Each card has a surfaceSecondary background, 24px radius, 0.5pt subtle border. Top of card: Avatar, Username, 'Community' tag in brandTertiary chip. Content: Inter text + optional full-width image (with 16px radius). Bottom row: Like/Comment/Share with Ionicons. Floating Action Button (FAB) at bottom right: glassmorphism over brandTertiary tint with Electric Cyan '+' icon."
+    },
+    {
+      "name": "Explore",
+      "purpose": "Discover trending tags, posts, and localized communities.",
+      "states": {
+        "loading": "Skeleton rows",
+        "empty": "Illustration + 'Search for tags'",
+        "error": "Centered error message"
+      },
+      "layout": "Sticky search bar at top inside a glass container. Horizontal scrollable tabs (Trending, New, Popular) below search. Below tabs, a 2-column grid of Hashtag/Topic cards using surfaceSecondary, each with a subtle background glow or small neon icon."
+    },
+    {
+      "name": "Communities",
+      "purpose": "Browse and join topic-based sub-groups.",
+      "states": {
+        "loading": "Skeleton cards",
+        "empty": "No communities found",
+        "error": "Centered error message"
+      },
+      "layout": "2-column grid of large square cards. Each card uses an image backdrop (e.g., Gaming, Tech) overlaid with a heavy 80% opacity dark gradient scrim. The title and 'Join' button sit at the bottom of the card in a glass panel. Pill badge at top right indicates member count."
+    },
+    {
+      "name": "Create Post",
+      "purpose": "Draft content with absolute privacy guarantees.",
+      "states": {
+        "loading": "Publishing spinner overlay",
+        "empty": "N/A",
+        "error": "Failed to post toast"
+      },
+      "layout": "Full-screen modal sheet with drag handle. Top row: Cancel, 'Posting to [Community]', Post CTA. Main body is a large borderless text area. Bottom sticky row (above keyboard): Media attachment icons (Image/Poll) and an always-ON 'Anonymous' toggle switch styled with Electric Cyan."
+    },
+    {
+      "name": "Anonymous Chat",
+      "purpose": "Secure 1-on-1 messaging without exposing real identities.",
+      "states": {
+        "loading": "Skeleton chat list",
+        "empty": "Illustration + 'No active chats'",
+        "error": "Failed to load chats"
+      },
+      "layout": "List view for inbox: Avatar, Nickname, snippet, unread dot (brandPrimary). Conversation view: Sticky glass header with user details. Chat bubbles: User messages are brandTertiary tint with onSurface text, Sender messages are surfaceSecondary. Text input pinned to bottom with keyboard avoiding view."
+    },
+    {
+      "name": "Profile",
+      "purpose": "View own anonymity score, saved posts, and achievements.",
+      "states": {
+        "loading": "Skeleton header",
+        "empty": "No posts saved yet.",
+        "error": "Error loading profile"
+      },
+      "layout": "Top 30% is a cover banner (using abstract cyan image) with a bottom gradient fade into surface. Avatar overlaps the banner. Reputation score displayed as a glowing glass badge. Tabs for 'Recent' and 'Saved' switch the feed below. Settings icon in top right."
+    }
+  ],
+  "images": {
+    "splash_logo": {
+      "url": "https://images.unsplash.com/photo-1677080865283-26f94ed332f1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdsb3dpbmclMjBlbGVjdHJpYyUyMGN5YW4lMjBnZW9tZXRyaWMlMjAzRCUyMHNoYXBlfGVufDB8fHx8MTc4NTg3NDUwOHww&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract glowing cyan circular 3D shape"
+    },
+    "avatar_1": {
+      "url": "https://images.unsplash.com/photo-1778132579763-544b3c33da83?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGFub255bW91cyUyMGZ1dHVyaXN0aWMlMjBtYXNrZWQlMjBhdmF0YXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODU4NzQ1MDh8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Anonymous masked avatar in dark setting"
+    },
+    "avatar_2": {
+      "url": "https://images.unsplash.com/photo-1662841256780-d2572552bbd5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGFub255bW91cyUyMGZ1dHVyaXN0aWMlMjBtYXNrZWQlMjBhdmF0YXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODU4NzQ1MDh8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract minimalist mask"
+    },
+    "post_image_1": {
+      "url": "https://images.unsplash.com/photo-1576344581549-060a332463d2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHw0fHxjeWJlcnB1bmslMjBuZW9uJTIwY2l0eSUyMG5pZ2h0JTIwcGhvdG9ncmFwaHl8ZW58MHx8fHwxNzg1ODc0NTA3fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Cyberpunk neon city night photography"
+    },
+    "post_image_2": {
+      "url": "https://images.unsplash.com/photo-1541702467897-41915a07d3a7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwyfHxjeWJlcnB1bmslMjBuZW9uJTIwY2l0eSUyMG5pZ2h0JTIwcGhvdG9ncmFwaHl8ZW58MHx8fHwxNzg1ODc0NTA3fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Neon car and dark intersection"
+    },
+    "comm_gaming": {
+      "url": "https://images.unsplash.com/photo-1666048181106-e3ec64e75c70?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwxfHxnYW1pbmclMjBuZW9uJTIwY29udHJvbGxlciUyMGVzcG9ydHMlMjBkYXJrJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3ODU4NzQ1MTV8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Neon gaming logo on dark wall"
+    },
+    "comm_tech": {
+      "url": "https://images.unsplash.com/photo-1532883031962-d3574f99541b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwxfHx0ZWNobm9sb2d5JTIwZnV0dXJpc3RpYyUyMGNpcmN1aXQlMjBib2FyZCUyMG5lb24lMjBtYWNyb3xlbnwwfHx8fDE3ODU4NzQ1MTV8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Macro glowing circuit board"
+    },
+    "comm_mental_health": {
+      "url": "https://images.unsplash.com/photo-1642879320437-15658d5668f1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwxfHxtZW50YWwlMjBoZWFsdGglMjBjYWxtJTIwZ2xvd2luZyUyMGFic3RyYWN0JTIwbWVkaXRhdGlvbnxlbnwwfHx8fDE3ODU4NzQ1MTV8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Calm purple abstract glowing meditation pattern"
+    },
+    "comm_relationships": {
+      "url": "https://images.unsplash.com/photo-1649303526325-4aa3ffbd7643?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwxfHxyZWxhdGlvbnNoaXBzJTIwbG92ZSUyMGFic3RyYWN0JTIwZ2xvd2luZyUyMGhlYXJ0JTIwbmVvbnxlbnwwfHx8fDE3ODU4NzQ1MTZ8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Glowing neon heart"
+    },
+    "profile_cover": {
+      "url": "https://images.unsplash.com/photo-1763926444244-a0becec704a2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGdsb3dpbmclMjBlbGVjdHJpYyUyMGN5YW4lMjBnZW9tZXRyaWMlMjAzRCUyMHNoYXBlfGVufDB8fHx8MTc4NTg3NDUwOHww&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract cyan light blocks for profile banner"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Follow the strict color palette using the Electric Cyan accent (#06B6D4) on Deep Navy (#0F172A).",
+    "Ensure all elevated components (Sticky headers, FABs, Modal Scrims, Tab Bars) utilize 'expo-blur' / 'expo-glass-effect' WITH an underlying tint layer of at least 75% opacity of surface or surfaceSecondary to guarantee text readability.",
+    "Implement the Anonymous onboarding as a frictionless guest-entry flow. Use the step-by-step layout defined in the screens block to prevent overwhelming users.",
+    "Use 24px (lg) border radii heavily on cards and bottom sheets to fulfill the user's explicit request for 18-24px rounded corners.",
+    "Do NOT use pure black or default grey tones. Use the assigned slate/navy hex values for surfaces.",
+    "Always apply vertical linear gradients (transparent to surfaceInverse) over background imagery before placing text to ensure WCAG AA contrast.",
+    "Implement the 'Anonymous Toggle' in Create Post prominently using the brandPrimary color."
+  ]
+}
