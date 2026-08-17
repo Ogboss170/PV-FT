@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Image as ExpoImage } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -20,6 +21,7 @@ import Avatar from "@/src/components/Avatar";
 import { AVATAR_GRADIENTS, communities } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { createPostInFirestore } from "@/src/services/postService";
+import { uploadMediaToFirebase } from "@/src/services/mediaService";
 import { auth } from "@/src/firebase";
 
 const VISIBILITIES = [
@@ -37,6 +39,8 @@ export default function Create() {
   const [pollMode, setPollMode] = useState(false);
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [submitting, setSubmitting] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const addPollOption = () => {
     if (pollOptions.length < 4) setPollOptions([...pollOptions, ""]);
@@ -47,8 +51,19 @@ export default function Create() {
     setPollOptions(next);
   };
 
+  const handlePickImage = () => {
+    const sampleImages = [
+      "https://images.unsplash.com/photo-1576344581549-060a332463d2?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1541702467897-41915a07d3a7?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1532883031962-d3574f99541b?crop=entropy&cs=srgb&fm=jpg&q=85",
+    ];
+    const picked = sampleImages[Math.floor(Math.random() * sampleImages.length)];
+    setImageUrl(picked);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   const onPost = async () => {
-    if (!text.trim() && !pollMode) return;
+    if (!text.trim() && !pollMode && !imageUrl) return;
     setSubmitting(true);
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -59,6 +74,7 @@ export default function Create() {
         community: community.name,
         communityEmoji: community.emoji,
         text: text.trim(),
+        image: imageUrl || undefined,
         userId: auth.currentUser?.uid || "anon-user",
         ...(pollMode && pollOptions.filter(o => o.trim()).length >= 2 ? {
           poll: {
@@ -214,8 +230,8 @@ export default function Create() {
             style={StyleSheet.absoluteFillObject}
           />
           <View style={styles.toolbarRow}>
-            <TouchableOpacity style={styles.toolBtn} testID="attach-image-btn">
-              <Ionicons name="image-outline" size={22} color={colors.brand} />
+            <TouchableOpacity style={styles.toolBtn} onPress={handlePickImage} testID="attach-image-btn">
+              <Ionicons name="image-outline" size={22} color={imageUrl ? colors.brand : colors.onSurfaceMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.toolBtn, pollMode && styles.toolBtnActive]}
