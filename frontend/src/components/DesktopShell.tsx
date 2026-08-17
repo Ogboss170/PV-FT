@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   ScrollView,
 } from "react-native";
-import { colors, radii, spacing } from "@/src/theme";
+import { colors, font, radii, spacing } from "@/src/theme";
 
 const NAV_ITEMS = [
   { label: "Home", route: "/(tabs)", icon: "home-outline", activeIcon: "home" },
