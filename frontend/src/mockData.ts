@@ -10,6 +10,7 @@ export type Post = {
   time: string;
   text: string;
   image?: string;
+  voiceNote?: { duration: number; audioUrl?: string };
   poll?: { question: string; options: { label: string; votes: number }[]; total: number };
   likes: number;
   comments: number;
@@ -97,6 +98,20 @@ export const posts: Post[] = [
     comments: 342,
     reposts: 120,
     liked: true,
+  },
+  {
+    id: "0b",
+    username: "CyberWhisper",
+    avatarColor: AVATAR_GRADIENTS[3],
+    avatarIcon: "mic",
+    community: "Mental Health",
+    communityEmoji: "🧠",
+    time: "8m",
+    text: "Voice note echo: Just needed to get this off my chest tonight.",
+    voiceNote: { duration: 24 },
+    likes: 920,
+    comments: 84,
+    reposts: 31,
   },
   {
     id: "1",

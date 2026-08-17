@@ -76,6 +76,11 @@ export default function PostCard({ post }: Props) {
       {/* Text */}
       <Text style={styles.text}>{post.text}</Text>
 
+      {/* Voice Note */}
+      {post.voiceNote ? (
+        <VoiceNotePlayer duration={post.voiceNote.duration} audioUrl={post.voiceNote.audioUrl} />
+      ) : null}
+
       {/* Image */}
       {post.image ? (
         <View style={styles.imageWrap}>
