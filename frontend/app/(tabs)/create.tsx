@@ -22,6 +22,7 @@ import { AVATAR_GRADIENTS, communities } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { createPostInFirestore } from "@/src/services/postService";
 import { uploadMediaToFirebase } from "@/src/services/mediaService";
+import { checkRateLimit, evaluateContentSafety } from "@/src/services/safetyService";
 import { auth } from "@/src/firebase";
 
 const VISIBILITIES = [
@@ -41,6 +42,7 @@ export default function Create() {
   const [submitting, setSubmitting] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [safetyError, setSafetyError] = useState("");
 
   const addPollOption = () => {
     if (pollOptions.length < 4) setPollOptions([...pollOptions, ""]);
@@ -64,6 +66,21 @@ export default function Create() {
 
   const onPost = async () => {
     if (!text.trim() && !pollMode && !imageUrl) return;
+    setSafetyError("");
+
+    // 1. Rate limit check
+    if (!checkRateLimit("post")) {
+      setSafetyError("Rate limit reached. Please wait a minute before posting again.");
+      return;
+    }
+
+    // 2. Safety & Threat Evaluation
+    const safetyCheck = evaluateContentSafety(text);
+    if (!safetyCheck.safe) {
+      setSafetyError(safetyCheck.reason || "Content violates safety guidelines.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

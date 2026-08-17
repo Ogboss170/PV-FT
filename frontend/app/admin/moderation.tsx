@@ -21,8 +21,11 @@ import {
   ModerationReport
 } from "@/src/services/moderationService";
 
+const MOD_TABS = ["Reports Queue", "Appeals Review"];
+
 export default function AdminModeration() {
   const router = useRouter();
+  const [tab, setTab] = useState(0);
   const [reports, setReports] = useState<ModerationReport[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,12 +59,28 @@ export default function AdminModeration() {
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <View>
-            <Text style={styles.title}>Admin Moderation</Text>
-            <Text style={styles.subtitle}>Review & resolve community flags</Text>
+            <Text style={styles.title}>Admin Moderation & Safety</Text>
+            <Text style={styles.subtitle}>Proactive Threat Detection & Appeals</Text>
           </View>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{reports.length}</Text>
           </View>
+        </View>
+
+        {/* Tab Filters */}
+        <View style={styles.tabsRow}>
+          {MOD_TABS.map((t, idx) => {
+            const active = idx === tab;
+            return (
+              <TouchableOpacity
+                key={t}
+                style={[styles.tabChip, active && styles.tabChipActive]}
+                onPress={() => setTab(idx)}
+              >
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>{t}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </SafeAreaView>
 
@@ -169,6 +188,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  tabsRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  tabChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  tabChipActive: {
+    backgroundColor: colors.brand,
+  },
+  tabText: {
+    fontFamily: font.family,
+    fontSize: 13,
+    fontWeight: "500",
+    color: colors.onSurfaceSecondary,
+  },
+  tabTextActive: {
+    color: "#0F172A",
+    fontWeight: "700",
   },
   center: {
     flex: 1,
