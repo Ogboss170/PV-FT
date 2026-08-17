@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { label: "Chats", route: "/(tabs)/chats", icon: "chatbubbles-outline", activeIcon: "chatbubbles" },
   { label: "Notifications", route: "/notifications", icon: "notifications-outline", activeIcon: "notifications" },
   { label: "Profile", route: "/(tabs)/profile", icon: "person-outline", activeIcon: "person" },
+  { label: "Moderation", route: "/admin/moderation", icon: "shield-half-outline", activeIcon: "shield-half" },
   { label: "Settings", route: "/settings", icon: "settings-outline", activeIcon: "settings" },
 ];
 
