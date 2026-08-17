@@ -12,12 +12,15 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
 import { AVATAR_GRADIENTS, communities } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { createPostInFirestore } from "@/src/services/postService";
+import { auth } from "@/src/firebase";
 
 const VISIBILITIES = [
   { key: "public", label: "Public", icon: "globe-outline" },
@@ -33,6 +36,7 @@ export default function Create() {
   const [community] = useState(communities[2]);
   const [pollMode, setPollMode] = useState(false);
   const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [submitting, setSubmitting] = useState(false);
 
   const addPollOption = () => {
     if (pollOptions.length < 4) setPollOptions([...pollOptions, ""]);
@@ -43,9 +47,33 @@ export default function Create() {
     setPollOptions(next);
   };
 
-  const onPost = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.back();
+  const onPost = async () => {
+    if (!text.trim() && !pollMode) return;
+    setSubmitting(true);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await createPostInFirestore({
+        username: "ShadowFox_42",
+        avatarColor: AVATAR_GRADIENTS[0],
+        avatarIcon: "flash",
+        community: community.name,
+        communityEmoji: community.emoji,
+        text: text.trim(),
+        userId: auth.currentUser?.uid || "anon-user",
+        ...(pollMode && pollOptions.filter(o => o.trim()).length >= 2 ? {
+          poll: {
+            question: text.trim() || "Community Poll",
+            options: pollOptions.filter(o => o.trim()).map(label => ({ label, votes: 0 })),
+            total: 0
+          }
+        } : {})
+      });
+      router.back();
+    } catch (e) {
+      console.error("Failed to publish post:", e);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

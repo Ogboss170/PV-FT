@@ -1,13 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PostCard from "@/src/components/PostCard";
-import { posts } from "@/src/mockData";
+import { Post, posts as fallbackPosts } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { subscribeToPosts } from "@/src/services/postService";
+import { ensureAnonymousAuth } from "@/src/services/authService";
 
 const FILTERS = ["For You", "Following", "Trending", "Communities", "Recent"];
 
@@ -15,6 +17,21 @@ export default function Home() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState(0);
+  const [postsList, setPostsList] = useState<Post[]>(fallbackPosts);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    ensureAnonymousAuth().catch(console.error);
+
+    const unsubscribe = subscribeToPosts((livePosts) => {
+      if (livePosts.length > 0) {
+        setPostsList(livePosts);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <View style={styles.container} testID="home-screen">
@@ -69,7 +86,7 @@ export default function Home() {
       </SafeAreaView>
 
       <FlatList
-        data={posts}
+        data={postsList}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => <PostCard post={item} />}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: 8, paddingBottom: 120 + insets.bottom }}
