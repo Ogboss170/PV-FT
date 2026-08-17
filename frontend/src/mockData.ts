@@ -85,6 +85,20 @@ export const THEME_COLORS = [
 
 export const posts: Post[] = [
   {
+    id: "0",
+    username: "WisdomEcho",
+    avatarColor: AVATAR_GRADIENTS[1],
+    avatarIcon: "sparkles",
+    community: "Life",
+    communityEmoji: "✨",
+    time: "2m",
+    text: "What's something you wish you could tell your younger self?",
+    likes: 1890,
+    comments: 342,
+    reposts: 120,
+    liked: true,
+  },
+  {
     id: "1",
     username: "ShadowFox_42",
     avatarColor: AVATAR_GRADIENTS[0],
