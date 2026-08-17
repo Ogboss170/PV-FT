@@ -1,4 +1,4 @@
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import {
   collection,
   addDoc,
@@ -11,56 +11,60 @@ import {
   serverTimestamp,
   updateDoc,
   deleteDoc,
-  arrayUnion
 } from "firebase/firestore";
+import { ModerationResult } from "./aiModerationService";
 
-export type ModerationReport = {
+export type ModerationEvent = {
   id: string;
-  reporterId: string;
-  targetType: "post" | "user" | "comment";
-  targetId: string;
-  targetContent?: string;
+  contentId: string;
+  contentType: string;
+  decision: string;
+  riskLevel: string;
+  categories: string[];
+  confidence: number;
   reason: string;
-  status: "pending" | "resolved" | "dismissed";
+  status: "pending" | "approved" | "removed" | "incorrect_ai";
   createdAt: any;
+  reviewedAt?: any;
 };
 
-export const reportItemInFirestore = async (reportData: {
-  reporterId: string;
-  targetType: "post" | "user" | "comment";
-  targetId: string;
-  targetContent?: string;
-  reason: string;
-}) => {
-  const reportsRef = collection(db, "moderation_reports");
-  return await addDoc(reportsRef, {
-    ...reportData,
+export const createModerationEventInFirestore = async (
+  contentId: string,
+  contentType: string,
+  result: ModerationResult
+) => {
+  const eventsRef = collection(db, "moderationEvents");
+  return await addDoc(eventsRef, {
+    contentId,
+    contentType,
+    decision: result.decision,
+    riskLevel: result.riskLevel,
+    categories: result.categories,
+    confidence: result.confidence,
+    reason: result.reason,
     status: "pending",
     createdAt: serverTimestamp(),
   });
 };
 
-export const blockUserInFirestore = async (currentUserId: string, blockedUserId: string) => {
-  const userRef = doc(db, "users", currentUserId);
-  await updateDoc(userRef, {
-    blockedUsers: arrayUnion(blockedUserId),
-  });
-};
-
-export const subscribeToPendingReports = (callback: (reports: ModerationReport[]) => void) => {
-  const reportsRef = collection(db, "moderation_reports");
-  const q = query(reportsRef, where("status", "==", "pending"), orderBy("createdAt", "desc"));
+export const subscribeToModerationEvents = (
+  callback: (events: ModerationEvent[]) => void
+) => {
+  const eventsRef = collection(db, "moderationEvents");
+  const q = query(eventsRef, where("status", "==", "pending"), orderBy("createdAt", "desc"));
 
   return onSnapshot(q, (snapshot) => {
-    const list: ModerationReport[] = snapshot.docs.map((docSnap) => {
+    const list: ModerationEvent[] = snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
       return {
         id: docSnap.id,
-        reporterId: data.reporterId || "anon",
-        targetType: data.targetType || "post",
-        targetId: data.targetId || "",
-        targetContent: data.targetContent || "No preview content",
-        reason: data.reason || "Inappropriate content",
+        contentId: data.contentId || "",
+        contentType: data.contentType || "anonymous_message",
+        decision: data.decision || "REVIEW",
+        riskLevel: data.riskLevel || "HIGH",
+        categories: data.categories || [],
+        confidence: data.confidence || 0.9,
+        reason: data.reason || "High risk content requiring review",
         status: data.status || "pending",
         createdAt: data.createdAt,
       };
@@ -69,16 +73,13 @@ export const subscribeToPendingReports = (callback: (reports: ModerationReport[]
   });
 };
 
-export const resolveReportInFirestore = async (reportId: string, action: "resolved" | "dismissed") => {
-  const reportRef = doc(db, "moderation_reports", reportId);
-  await updateDoc(reportRef, {
-    status: action,
-    resolvedAt: serverTimestamp(),
+export const updateModerationEventStatus = async (
+  eventId: string,
+  newStatus: "approved" | "removed" | "incorrect_ai"
+) => {
+  const eventRef = doc(db, "moderationEvents", eventId);
+  await updateDoc(eventRef, {
+    status: newStatus,
+    reviewedAt: serverTimestamp(),
   });
-};
-
-export const deleteReportedPostInFirestore = async (postId: string, reportId: string) => {
-  const postRef = doc(db, "posts", postId);
-  await deleteDoc(postRef);
-  await resolveReportInFirestore(reportId, "resolved");
 };

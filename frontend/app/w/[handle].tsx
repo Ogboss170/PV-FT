@@ -28,6 +28,10 @@ const MOODS = [
 
 const MAX = 500;
 
+import { evaluateAIModeration, ModerationResult } from "@/src/services/aiModerationService";
+import { createModerationEventInFirestore } from "@/src/services/moderationService";
+import { checkRateLimit } from "@/src/services/safetyService";
+
 export default function WhisperSend() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -36,36 +40,73 @@ export default function WhisperSend() {
   const [message, setMessage] = useState("");
   const [mood, setMood] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [moderationResult, setModerationResult] = useState<ModerationResult | null>(null);
 
   const canSend = message.trim().length >= 3;
 
-  const onSend = () => {
+  const onSend = async () => {
     if (!canSend) return;
+
+    // Rate limiting check
+    if (!checkRateLimit("message")) {
+      setModerationResult({
+        decision: "BLOCK",
+        riskLevel: "HIGH",
+        categories: ["rate_limit"],
+        confidence: 1.0,
+        reason: "Rate limit reached",
+        action: "Block delivery",
+      });
+      setSent(true);
+      return;
+    }
+
+    // AI Moderation Evaluation Pipeline
+    const result = evaluateAIModeration(message, "anonymous_message");
+    setModerationResult(result);
+
+    if (result.decision === "REVIEW") {
+      await createModerationEventInFirestore(`msg_${Date.now()}`, "anonymous_message", result);
+    } else if (result.decision === "BLOCK") {
+      await createModerationEventInFirestore(`msg_${Date.now()}`, "anonymous_message", result);
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSent(true);
   };
 
   if (sent) {
+    const decision = moderationResult?.decision || "ALLOW";
+    const isBlock = decision === "BLOCK";
+    const isReview = decision === "REVIEW";
+
     return (
       <View style={styles.container} testID="whisper-sent-screen">
         <LinearGradient colors={["#0F172A", "#0B1220"]} style={StyleSheet.absoluteFillObject} />
-        <View style={[styles.blob, { top: -80, left: -40, backgroundColor: "rgba(139,92,246,0.20)" }]} />
-        <View style={[styles.blob, { bottom: -80, right: -40, backgroundColor: "rgba(16,185,129,0.20)" }]} />
+        <View style={[styles.blob, { top: -80, left: -40, backgroundColor: isBlock ? "rgba(239,68,68,0.20)" : isReview ? "rgba(245,158,11,0.20)" : "rgba(16,185,129,0.20)" }]} />
 
         <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
           <View style={styles.sentBody}>
             <View style={styles.sentIcon}>
               <LinearGradient
-                colors={["#10B981", "#06B6D4"]}
+                colors={isBlock ? ["#EF4444", "#DC2626"] : isReview ? ["#F59E0B", "#D97706"] : ["#10B981", "#06B6D4"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFillObject}
               />
-              <Ionicons name="paper-plane" size={38} color="#FFFFFF" />
+              <Ionicons name={isBlock ? "shield-disagree" : isReview ? "time-outline" : "paper-plane"} size={38} color="#FFFFFF" />
             </View>
-            <Text style={styles.sentTitle}>Whisper sent</Text>
+
+            <Text style={styles.sentTitle}>
+              {isBlock ? "Message not sent" : isReview ? "Message pending" : "Whisper sent"}
+            </Text>
+
             <Text style={styles.sentSub}>
-              @{displayHandle} won&apos;t know who sent this. Your identity is safe.
+              {isBlock
+                ? "This message doesn't meet Private Voices' community guidelines."
+                : isReview
+                ? "We're checking this message before it can be delivered."
+                : `@${displayHandle} won't know who sent this. Your identity is safe.`}
             </Text>
 
             <View style={styles.sentTrust}>
