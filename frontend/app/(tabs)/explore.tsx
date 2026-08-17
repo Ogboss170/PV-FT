@@ -18,7 +18,7 @@ import Avatar from "@/src/components/Avatar";
 import { communities, suggestedCreators, trendingTags } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 
-const TABS = ["Trending", "New", "Popular", "Nearby"];
+const TABS = ["🔥 Trending", "For You", "💬 Popular Voices", "Communities"];
 
 export default function Explore() {
   const router = useRouter();

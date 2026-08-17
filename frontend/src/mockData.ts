@@ -243,12 +243,13 @@ export const communities: Community[] = [
 ];
 
 export const trendingTags = [
-  { tag: "#latenight", posts: "12.4K" },
-  { tag: "#confessions", posts: "8.9K" },
-  { tag: "#unpopularopinion", posts: "6.2K" },
-  { tag: "#dailyreflection", posts: "4.7K" },
-  { tag: "#quietwins", posts: "3.1K" },
-  { tag: "#firstjob", posts: "2.8K" },
+  { tag: "#Relationships", posts: "48.2K", category: "Trending" },
+  { tag: "#School", posts: "32.1K", category: "Trending" },
+  { tag: "#Work", posts: "29.4K", category: "Trending" },
+  { tag: "#Life", posts: "54.8K", category: "Trending" },
+  { tag: "#Nigeria", posts: "19.8K", category: "Regional" },
+  { tag: "#USA", posts: "41.0K", category: "Regional" },
+  { tag: "#Anonymous", posts: "62.3K", category: "Core" },
 ];
 
 export const suggestedCreators = [
