@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -16,25 +16,44 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
-import { AVATAR_GRADIENTS, conversation } from "@/src/mockData";
+import { AVATAR_GRADIENTS, conversation as fallbackConversation } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { subscribeToMessages, sendMessageInFirestore, MessageItem } from "@/src/services/chatService";
+import { auth } from "@/src/firebase";
 
 export default function Conversation() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const nickname = (name as string) || "ShadowFox_42";
   const [text, setText] = useState("");
-  const [messages, setMessages] = useState(conversation);
+  const [messages, setMessages] = useState<any[]>(fallbackConversation);
+  const currentUserId = auth.currentUser?.uid || "current-user";
 
-  const send = () => {
+  useEffect(() => {
+    if (!id) return;
+    const unsubscribe = subscribeToMessages(id as string, currentUserId, (liveMsgs) => {
+      if (liveMsgs.length > 0) {
+        setMessages(liveMsgs);
+      }
+    });
+    return () => unsubscribe();
+  }, [id, currentUserId]);
+
+  const send = async () => {
     if (!text.trim()) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setMessages([
-      ...messages,
-      { id: `m${Date.now()}`, fromMe: true, text: text.trim(), time: "now" },
-    ]);
+    const msgText = text.trim();
     setText("");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    if (id) {
+      await sendMessageInFirestore(id as string, currentUserId, msgText);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        { id: `m${Date.now()}`, fromMe: true, text: msgText, time: "now" },
+      ]);
+    }
   };
 
   return (

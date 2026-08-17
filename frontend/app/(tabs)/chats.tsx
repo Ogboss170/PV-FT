@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -13,8 +13,10 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
-import { chats } from "@/src/mockData";
+import { ChatThread, chats as fallbackChats } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { subscribeToChatThreads } from "@/src/services/chatService";
+import { auth } from "@/src/firebase";
 
 const TABS = ["All", "Unread", "Requests"];
 
@@ -23,6 +25,19 @@ export default function Chats() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
   const [query, setQuery] = useState("");
+  const [chatList, setChatList] = useState<ChatThread[]>(fallbackChats);
+
+  useEffect(() => {
+    const currentUserId = auth.currentUser?.uid;
+    if (!currentUserId) return;
+
+    const unsubscribe = subscribeToChatThreads(currentUserId, (liveThreads) => {
+      if (liveThreads.length > 0) {
+        setChatList(liveThreads);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   return (
     <View style={styles.container} testID="chats-screen">
@@ -86,7 +101,7 @@ export default function Chats() {
       </SafeAreaView>
 
       <FlatList
-        data={chats}
+        data={chatList}
         keyExtractor={(c) => c.id}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 140 + insets.bottom }}
         renderItem={({ item }) => (
