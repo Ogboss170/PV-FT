@@ -1,4 +1,4 @@
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import {
   collection,
   addDoc,
@@ -8,9 +8,27 @@ import {
   onSnapshot,
   serverTimestamp,
   doc,
-  updateDoc
+  updateDoc,
+  setDoc,
 } from "firebase/firestore";
 import { Notification } from "../mockData";
+import { Platform } from "react-native";
+
+export const registerForPushNotifications = async (): Promise<string | null> => {
+  try {
+    const userId = auth.currentUser?.uid || "anon-user";
+    const dummyToken = `ExponentPushToken[PV_${userId.slice(0, 8)}_${Platform.OS}]`;
+
+    // Save push token under user doc
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, { pushToken: dummyToken, pushEnabled: true }, { merge: true });
+
+    return dummyToken;
+  } catch (e) {
+    console.error("Failed to register push token:", e);
+    return null;
+  }
+};
 
 export const subscribeToNotifications = (
   userId: string,

@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Avatar from "@/src/components/Avatar";
 import { Notification, notifications as fallbackNotifications } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
-import { subscribeToNotifications, markNotificationsAsRead } from "@/src/services/notificationService";
+import { subscribeToNotifications, markNotificationsAsRead, registerForPushNotifications } from "@/src/services/notificationService";
 import { auth } from "@/src/firebase";
 
 const TABS = ["All", "Mentions", "Likes", "Follows"];
@@ -34,6 +34,8 @@ export default function Notifications() {
   const [notifList, setNotifList] = useState<Notification[]>(fallbackNotifications);
 
   useEffect(() => {
+    registerForPushNotifications();
+
     const currentUserId = auth.currentUser?.uid;
     if (!currentUserId) return;
 
