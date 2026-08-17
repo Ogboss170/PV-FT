@@ -26,6 +26,16 @@ export default function Explore() {
   const [tab, setTab] = useState(0);
   const [query, setQuery] = useState("");
 
+  const filteredTags = trendingTags.filter(
+    (t) => !query || t.tag.toLowerCase().includes(query.toLowerCase()) || t.name.toLowerCase().includes(query.toLowerCase())
+  );
+  const filteredCreators = suggestedCreators.filter(
+    (c) => !query || c.handle.toLowerCase().includes(query.toLowerCase()) || c.title.toLowerCase().includes(query.toLowerCase())
+  );
+  const filteredCommunities = communities.filter(
+    (cm) => !query || cm.name.toLowerCase().includes(query.toLowerCase()) || cm.description.toLowerCase().includes(query.toLowerCase())
+  );
+
   return (
     <View style={styles.container} testID="explore-screen">
       <LinearGradient
@@ -118,7 +128,7 @@ export default function Explore() {
             </TouchableOpacity>
           </View>
           <View style={styles.tagsGrid}>
-            {trendingTags.map((t, i) => (
+            {filteredTags.map((t, i) => (
               <TouchableOpacity key={t.tag} style={styles.tagCard} activeOpacity={0.8} testID={`trend-tag-${i}`}>
                 <View style={styles.tagRank}>
                   <Text style={styles.tagRankText}>{i + 1}</Text>
@@ -143,7 +153,7 @@ export default function Explore() {
           </View>
           <FlatList
             horizontal
-            data={suggestedCreators}
+            data={filteredCreators}
             keyExtractor={(c) => c.name}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: 12 }}
@@ -169,7 +179,7 @@ export default function Explore() {
             </TouchableOpacity>
           </View>
           <View style={styles.commGrid}>
-            {communities.slice(0, 4).map((c) => (
+            {filteredCommunities.slice(0, 4).map((c) => (
               <TouchableOpacity
                 key={c.id}
                 onPress={() => router.push({ pathname: "/community/[id]", params: { id: c.id } } as any)}
