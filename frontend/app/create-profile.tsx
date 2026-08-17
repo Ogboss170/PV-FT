@@ -12,6 +12,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,6 +20,8 @@ import Avatar from "@/src/components/Avatar";
 import GlassCard from "@/src/components/GlassCard";
 import { AVATAR_GRADIENTS, AVATAR_ICONS, THEME_COLORS } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { createUserProfile, ensureAnonymousAuth } from "@/src/services/authService";
+import { auth } from "@/src/firebase";
 
 export default function CreateProfile() {
   const router = useRouter();
@@ -27,10 +30,27 @@ export default function CreateProfile() {
   const [gradientIdx, setGradientIdx] = useState(0);
   const [iconIdx, setIconIdx] = useState(0);
   const [themeIdx, setThemeIdx] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.replace("/(tabs)");
+    setLoading(true);
+    try {
+      const user = await ensureAnonymousAuth();
+      await createUserProfile(user.uid, {
+        username: username.trim() || "ShadowFox_42",
+        avatarIcon: AVATAR_ICONS[iconIdx],
+        avatarGradient: AVATAR_GRADIENTS[gradientIdx] as any,
+        themeColor: THEME_COLORS[themeIdx],
+        bio: bio.trim(),
+      });
+      router.replace("/(tabs)");
+    } catch (e) {
+      console.error("Failed to save profile:", e);
+      router.replace("/(tabs)");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

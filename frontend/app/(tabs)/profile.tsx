@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -9,6 +9,8 @@ import Avatar from "@/src/components/Avatar";
 import PostCard from "@/src/components/PostCard";
 import { achievements, AVATAR_GRADIENTS, communities, posts } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { getUserProfile, UserProfile } from "@/src/services/authService";
+import { auth } from "@/src/firebase";
 
 const TABS = [
   { key: "posts", label: "Posts", count: 128 },
@@ -26,6 +28,16 @@ export default function Profile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    getUserProfile(uid).then((p) => {
+      if (p) setUserProfile(p);
+    });
+  }, []);
 
   const joinedCommunities = communities.filter((c) => c.joined);
   const savedPosts = posts.filter((p) => p.saved);
