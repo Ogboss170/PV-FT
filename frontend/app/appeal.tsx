@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   submittedWrap: {
     alignItems: "center",
-    paddingVertical: spacing.2xl,
+    paddingVertical: spacing.xl * 1.5,
   },
   title: {
     fontFamily: font.family,

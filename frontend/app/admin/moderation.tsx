@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: spacing.2xl,
+    padding: spacing.xl * 1.5,
   },
   emptyTitle: {
     fontFamily: font.family,

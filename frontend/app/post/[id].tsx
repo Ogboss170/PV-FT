@@ -91,31 +91,6 @@ function CommentBlock({ c, depth = 0 }: { c: Comment; depth?: number }) {
   );
 }
 
-import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState, useEffect } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-
-import Avatar from "@/src/components/Avatar";
-import { AVATAR_GRADIENTS, Comment, comments as allComments, posts } from "@/src/mockData";
-import { colors, font, radii, spacing } from "@/src/theme";
-import { subscribeToComments, addCommentToFirestore } from "@/src/services/postService";
-
-const SORT_TABS = ["Top", "New", "Following"];
-
 export default function PostDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();

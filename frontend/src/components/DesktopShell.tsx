@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   logoRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: spacing.2xl,
+    marginBottom: spacing.xl * 1.5,
   },
   logoBadge: {
     width: 36,
