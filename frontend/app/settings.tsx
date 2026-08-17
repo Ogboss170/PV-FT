@@ -9,6 +9,8 @@ import Avatar from "@/src/components/Avatar";
 import { AVATAR_GRADIENTS } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 
+import InviteFriendsModal from "@/src/components/InviteFriendsModal";
+
 type Row = {
   icon: string;
   label: string;
@@ -17,6 +19,7 @@ type Row = {
   toggle?: boolean;
   destructive?: boolean;
   chevron?: boolean;
+  onPress?: () => void;
 };
 
 export default function Settings() {
@@ -24,6 +27,7 @@ export default function Settings() {
   const [notif, setNotif] = useState(true);
   const [readReceipts, setReadReceipts] = useState(false);
   const [darkMode] = useState(true);
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
   const sections: { title: string; rows: (Row & { onToggle?: (v: boolean) => void; toggleValue?: boolean })[] }[] = [
     {
@@ -35,12 +39,12 @@ export default function Settings() {
       ],
     },
     {
-      title: "Preferences",
+      title: "Preferences & Growth",
       rows: [
+        { icon: "gift-outline", label: "Invite Friends", hint: "Get your anonymous link", chevron: true, onPress: () => setInviteModalVisible(true) },
         { icon: "notifications-outline", label: "Notifications", toggle: true, toggleValue: notif, onToggle: setNotif },
         { icon: "moon-outline", label: "Dark mode", hint: "Always on", toggle: true, toggleValue: darkMode },
         { icon: "language-outline", label: "Language", hint: "English", chevron: true },
-        { icon: "color-palette-outline", label: "Theme color", hint: "Electric Cyan", chevron: true },
       ],
     },
     {
@@ -99,6 +103,7 @@ export default function Settings() {
               {section.rows.map((row, i) => (
                 <TouchableOpacity
                   key={row.label}
+                  onPress={row.onPress}
                   style={[styles.row, i < section.rows.length - 1 && styles.rowDivider]}
                   activeOpacity={0.7}
                   testID={`settings-row-${row.label.toLowerCase().replace(/\s+/g, "-")}`}
@@ -133,6 +138,11 @@ export default function Settings() {
 
         <Text style={styles.version}>Private Voices · v1.0.0</Text>
       </ScrollView>
+
+      <InviteFriendsModal
+        visible={inviteModalVisible}
+        onClose={() => setInviteModalVisible(false)}
+      />
     </View>
   );
 }
