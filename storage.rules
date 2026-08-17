@@ -1,0 +1,41 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isImageOrAudio() {
+      return request.resource.contentType.matches('image/.*') 
+          || request.resource.contentType.matches('audio/.*');
+    }
+
+    function isUnderMaxSize() {
+      return request.resource.size < 10 * 1024 * 1024; // 10MB max limit
+    }
+
+    // Media uploads path
+    match /uploads/{userId}/{allPaths=**} {
+      allow read: if true; // Public read for post images and avatars
+      allow write: if isAuthenticated() 
+        && request.auth.uid == userId 
+        && isImageOrAudio() 
+        && isUnderMaxSize();
+    }
+
+    // Voice notes uploads path
+    match /voicenotes/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+        && request.auth.uid == userId 
+        && request.resource.contentType.matches('audio/.*')
+        && request.resource.size < 15 * 1024 * 1024; // 15MB max limit
+    }
+
+    // Fallback block
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
