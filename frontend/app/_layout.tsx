@@ -20,16 +20,12 @@ export default function RootLayout() {
   const [loaded, error] = useIconFonts();
 
   useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
-
-  if (!loaded && !error) return null;
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0F172A" }}>
-      <SafeAreaProvider>
+      <SafeAreaProvider style={{ flex: 1, backgroundColor: "#0F172A" }}>
         <StatusBar style="light" />
         <DesktopShell>
           <Stack
