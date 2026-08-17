@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FlatList,
   ScrollView,
@@ -14,8 +14,10 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { communities as allCommunities } from "@/src/mockData";
+import { Community, communities as fallbackCommunities } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { subscribeToCommunities, toggleJoinCommunityInFirestore } from "@/src/services/communityService";
+import { auth } from "@/src/firebase";
 
 const FILTERS = ["All", "Joined", "Trending", "New"];
 
@@ -24,11 +26,29 @@ export default function Communities() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState(0);
   const [query, setQuery] = useState("");
+  const [communitiesList, setCommunitiesList] = useState<Community[]>(fallbackCommunities);
   const [joined, setJoined] = useState<Record<string, boolean>>(
-    Object.fromEntries(allCommunities.map((c) => [c.id, !!c.joined])),
+    Object.fromEntries(fallbackCommunities.map((c) => [c.id, !!c.joined]))
   );
 
-  const list = allCommunities.filter((c) => {
+  useEffect(() => {
+    const unsubscribe = subscribeToCommunities((liveComms) => {
+      if (liveComms.length > 0) {
+        setCommunitiesList(liveComms);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleToggleJoin = async (communityId: string) => {
+    const isJoined = !!joined[communityId];
+    setJoined((prev) => ({ ...prev, [communityId]: !isJoined }));
+
+    const userId = auth.currentUser?.uid || "anon-user";
+    await toggleJoinCommunityInFirestore(communityId, userId, isJoined).catch(console.error);
+  };
+
+  const list = communitiesList.filter((c) => {
     if (filter === 1 && !joined[c.id]) return false;
     if (query && !c.name.toLowerCase().includes(query.toLowerCase())) return false;
     return true;
@@ -114,7 +134,7 @@ export default function Communities() {
               <View style={styles.cardBody}>
                 <Text style={styles.desc}>{c.description}</Text>
                 <TouchableOpacity
-                  onPress={() => setJoined({ ...joined, [c.id]: !isJoined })}
+                  onPress={() => handleToggleJoin(c.id)}
                   style={[styles.joinBtn, isJoined && styles.joinedBtn]}
                   activeOpacity={0.85}
                   testID={`community-join-${c.id}`}
