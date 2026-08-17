@@ -91,6 +91,31 @@ function CommentBlock({ c, depth = 0 }: { c: Comment; depth?: number }) {
   );
 }
 
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useState, useEffect } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+import Avatar from "@/src/components/Avatar";
+import { AVATAR_GRADIENTS, Comment, comments as allComments, posts } from "@/src/mockData";
+import { colors, font, radii, spacing } from "@/src/theme";
+import { subscribeToComments, addCommentToFirestore } from "@/src/services/postService";
+
+const SORT_TABS = ["Top", "New", "Following"];
+
 export default function PostDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -98,6 +123,47 @@ export default function PostDetail() {
   const post = posts.find((p) => p.id === id) ?? posts[0];
   const [reply, setReply] = useState("");
   const [sort, setSort] = useState(0);
+  const [commentsList, setCommentsList] = useState<Comment[]>(allComments);
+
+  useEffect(() => {
+    if (!id) return;
+    const unsubscribe = subscribeToComments(id as string, (liveComments) => {
+      if (liveComments.length > 0) {
+        setCommentsList(liveComments as any);
+      }
+    });
+    return () => unsubscribe();
+  }, [id]);
+
+  const onSendReply = async () => {
+    if (!reply.trim()) return;
+    const commentText = reply.trim();
+    setReply("");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (id) {
+      await addCommentToFirestore(id as string, {
+        username: "ShadowFox_42",
+        avatarColor: AVATAR_GRADIENTS[0] as any,
+        avatarIcon: "flash",
+        text: commentText,
+        isOp: false,
+      });
+    } else {
+      setCommentsList((prev) => [
+        ...prev,
+        {
+          id: `c${Date.now()}`,
+          username: "ShadowFox_42",
+          avatarColor: AVATAR_GRADIENTS[0],
+          avatarIcon: "flash",
+          time: "now",
+          text: commentText,
+          likes: 0,
+        },
+      ]);
+    }
+  };
   const [liked, setLiked] = useState(!!post.liked);
   const [saved, setSaved] = useState(!!post.saved);
   const [likes, setLikes] = useState(post.likes);
@@ -262,7 +328,7 @@ export default function PostDetail() {
 
           {/* Comments */}
           <View style={styles.commentsList}>
-            {allComments.map((c) => (
+            {commentsList.map((c) => (
               <CommentBlock key={c.id} c={c} />
             ))}
           </View>
@@ -282,11 +348,7 @@ export default function PostDetail() {
               testID="post-reply-input"
             />
             <TouchableOpacity
-              onPress={() => {
-                if (!reply.trim()) return;
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setReply("");
-              }}
+              onPress={onSendReply}
               activeOpacity={0.85}
               style={[styles.sendBtn, !reply.trim() && { opacity: 0.4 }]}
               testID="post-reply-send"

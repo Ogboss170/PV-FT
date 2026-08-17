@@ -96,3 +96,50 @@ export const voteOnPollInFirestore = async (postId: string, optionIndex: number,
     "poll.total": increment(1),
   });
 };
+
+export const subscribeToComments = (postId: string, callback: (comments: any[]) => void) => {
+  const commentsRef = collection(db, "posts", postId, "comments");
+  const q = query(commentsRef, orderBy("createdAt", "asc"));
+
+  return onSnapshot(q, (snapshot) => {
+    const list = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        username: data.username || "Anonymous",
+        avatarColor: data.avatarColor || ["#06B6D4", "#0284C7"],
+        avatarIcon: data.avatarIcon || "flash",
+        time: data.createdAt ? "Just now" : "1m",
+        text: data.text || "",
+        likes: data.likes || 0,
+        liked: false,
+        op: data.isOp || false,
+      };
+    });
+    callback(list);
+  });
+};
+
+export const addCommentToFirestore = async (
+  postId: string,
+  commentData: {
+    username: string;
+    avatarColor: [string, string];
+    avatarIcon: string;
+    text: string;
+    isOp?: boolean;
+  }
+) => {
+  const commentsRef = collection(db, "posts", postId, "comments");
+  const postRef = doc(db, "posts", postId);
+
+  await addDoc(commentsRef, {
+    ...commentData,
+    likes: 0,
+    createdAt: serverTimestamp(),
+  });
+
+  await updateDoc(postRef, {
+    commentsCount: increment(1),
+  });
+};
