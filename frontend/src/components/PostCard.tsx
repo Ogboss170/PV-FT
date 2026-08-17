@@ -9,6 +9,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { colors, font, radii, shadow, spacing } from "../theme";
 import Avatar from "./Avatar";
 import { Post } from "../mockData";
+import { toggleLikePost, voteOnPollInFirestore } from "../services/postService";
+import { auth } from "../firebase";
 
 type Props = { post: Post };
 
@@ -21,12 +23,24 @@ export default function PostCard({ post }: Props) {
 
   const onLike = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLiked((v) => !v);
+    const newLikedState = !liked;
+    setLiked(newLikedState);
     setLikes((c) => (liked ? c - 1 : c + 1));
+
+    const userId = auth.currentUser?.uid || "anon-user";
+    toggleLikePost(post.id, userId, liked).catch(console.error);
   };
   const onSave = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSaved((v) => !v);
+  };
+
+  const handlePollVote = (idx: number) => {
+    if (pollVote === null && post.poll) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setPollVote(idx);
+      voteOnPollInFirestore(post.id, idx, post.poll).catch(console.error);
+    }
   };
 
   const pollTotal = post.poll
@@ -85,12 +99,7 @@ export default function PostCard({ post }: Props) {
               <TouchableOpacity
                 key={idx}
                 activeOpacity={0.85}
-                onPress={() => {
-                  if (pollVote === null) {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setPollVote(idx);
-                  }
-                }}
+                onPress={() => handlePollVote(idx)}
                 style={styles.pollRow}
                 testID={`post-poll-${post.id}-${idx}`}
               >

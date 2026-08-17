@@ -82,3 +82,17 @@ export const toggleLikePost = async (postId: string, userId: string, isLiked: bo
     });
   }
 };
+
+export const voteOnPollInFirestore = async (postId: string, optionIndex: number, currentPoll: any) => {
+  const postRef = doc(db, "posts", postId);
+  const updatedOptions = [...currentPoll.options];
+  updatedOptions[optionIndex] = {
+    ...updatedOptions[optionIndex],
+    votes: updatedOptions[optionIndex].votes + 1,
+  };
+
+  await updateDoc(postRef, {
+    "poll.options": updatedOptions,
+    "poll.total": increment(1),
+  });
+};
