@@ -36,20 +36,21 @@ export default function CreateProfile() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(true);
     try {
-      const user = await ensureAnonymousAuth();
-      await createUserProfile(user.uid, {
-        username: username.trim() || "ShadowFox_42",
-        avatarIcon: AVATAR_ICONS[iconIdx],
-        avatarGradient: AVATAR_GRADIENTS[gradientIdx] as any,
-        themeColor: THEME_COLORS[themeIdx],
-        bio: bio.trim(),
-      });
-      router.replace("/(tabs)");
+      const currentUser = auth.currentUser || (await ensureAnonymousAuth());
+      if (currentUser?.uid) {
+        await createUserProfile(currentUser.uid, {
+          username: username.trim() || "ShadowFox_42",
+          avatarIcon: AVATAR_ICONS[iconIdx],
+          avatarGradient: AVATAR_GRADIENTS[gradientIdx] as any,
+          themeColor: THEME_COLORS[themeIdx],
+          bio: bio.trim(),
+        });
+      }
     } catch (e) {
       console.error("Failed to save profile:", e);
-      router.replace("/(tabs)");
     } finally {
       setLoading(false);
+      router.replace("/(tabs)");
     }
   };
 

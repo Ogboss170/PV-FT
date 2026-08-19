@@ -17,7 +17,7 @@ LogBox.ignoreAllLogs(true);
 SplashScreen.preventAutoHideAsync();
 
 // Routes that don't require authentication
-const PUBLIC_SEGMENTS = ["auth", "w"];
+const PUBLIC_SEGMENTS = ["auth", "w", "create-profile"];
 
 export default function RootLayout() {
   const [loaded] = useIconFonts();
