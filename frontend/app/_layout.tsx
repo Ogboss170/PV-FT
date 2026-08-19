@@ -14,41 +14,37 @@ import { useAuthState } from "@/src/services/authService";
 LogBox.ignoreAllLogs(true);
 
 // Keep the native splash visible until fonts are ready
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Routes that don't require authentication
-const PUBLIC_SEGMENTS = ["auth", "w", "create-profile"];
+const PUBLIC_SEGMENTS = ["auth", "w", "create-profile", "index", "onboarding"];
 
 export default function RootLayout() {
-  const [loaded] = useIconFonts();
+  useIconFonts();
   const { user, loading: authLoading } = useAuthState();
   const segments = useSegments();
   const router = useRouter();
 
-  // Hide splash once fonts + auth state are both resolved
+  // Hide splash screen immediately on mount
   useEffect(() => {
-    if (!authLoading) {
-      SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [authLoading]);
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   // Auth guard — runs whenever auth state or route changes
   useEffect(() => {
     if (authLoading) return;
 
-    const inPublicRoute = PUBLIC_SEGMENTS.some((seg) => segments[0] === seg);
+    const currentSegment = segments[0] || "index";
+    const inPublicRoute = PUBLIC_SEGMENTS.includes(currentSegment);
 
     if (!user && !inPublicRoute) {
       // Not signed in → redirect to login
       router.replace("/auth/login");
-    } else if (user && inPublicRoute && segments[0] === "auth") {
+    } else if (user && inPublicRoute && currentSegment === "auth") {
       // Already signed in → redirect to app
       router.replace("/(tabs)");
     }
   }, [user, authLoading, segments]);
-
-  // Don't render until auth state is resolved (prevents flash)
-  if (authLoading) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0F172A" }}>
