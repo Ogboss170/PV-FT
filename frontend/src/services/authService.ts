@@ -82,23 +82,31 @@ export const registerWithEmail = async (
   const user = credential.user;
 
   // Set display name on the Firebase Auth profile
-  await updateProfile(user, { displayName: username });
+  try {
+    await updateProfile(user, { displayName: username });
+  } catch (e) {
+    console.warn("Could not update profile displayName:", e);
+  }
 
-  // Create Firestore user document
-  const profile: UserProfile = {
-    uid: user.uid,
-    username,
-    email,
-    avatarIcon: "person",
-    avatarGradient: ["#8B5CF6", "#06B6D4"],
-    themeColor: "#8B5CF6",
-    bio: "",
-    reputationScore: 100,
-    anonymityLevel: 100,
-    isAnonymous: false,
-    joinedAt: serverTimestamp(),
-  };
-  await setDoc(doc(db, "users", user.uid), profile, { merge: true });
+  // Create Firestore user document safely
+  try {
+    const profile: UserProfile = {
+      uid: user.uid,
+      username,
+      email,
+      avatarIcon: "person",
+      avatarGradient: ["#8B5CF6", "#06B6D4"],
+      themeColor: "#8B5CF6",
+      bio: "",
+      reputationScore: 100,
+      anonymityLevel: 100,
+      isAnonymous: false,
+      joinedAt: serverTimestamp(),
+    };
+    await setDoc(doc(db, "users", user.uid), profile, { merge: true });
+  } catch (e) {
+    console.warn("Could not write Firestore user document:", e);
+  }
 
   return user;
 };
@@ -122,23 +130,27 @@ export const loginWithGoogle = async (): Promise<User> => {
   const user = credential.user;
 
   // Create Firestore profile if it doesn't already exist
-  const userRef = doc(db, "users", user.uid);
-  const snap = await getDoc(userRef);
-  if (!snap.exists()) {
-    const profile: UserProfile = {
-      uid: user.uid,
-      username: user.displayName ?? `User_${user.uid.slice(0, 6)}`,
-      email: user.email ?? undefined,
-      avatarIcon: "person",
-      avatarGradient: ["#8B5CF6", "#06B6D4"],
-      themeColor: "#8B5CF6",
-      bio: "",
-      reputationScore: 100,
-      anonymityLevel: 100,
-      isAnonymous: false,
-      joinedAt: serverTimestamp(),
-    };
-    await setDoc(userRef, profile, { merge: true });
+  try {
+    const userRef = doc(db, "users", user.uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      const profile: UserProfile = {
+        uid: user.uid,
+        username: user.displayName ?? `User_${user.uid.slice(0, 6)}`,
+        email: user.email ?? undefined,
+        avatarIcon: "person",
+        avatarGradient: ["#8B5CF6", "#06B6D4"],
+        themeColor: "#8B5CF6",
+        bio: "",
+        reputationScore: 100,
+        anonymityLevel: 100,
+        isAnonymous: false,
+        joinedAt: serverTimestamp(),
+      };
+      await setDoc(userRef, profile, { merge: true });
+    }
+  } catch (e) {
+    console.warn("Could not check/create Firestore Google user document:", e);
   }
 
   return user;
