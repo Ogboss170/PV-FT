@@ -34,14 +34,12 @@ export default function RootLayout() {
   useEffect(() => {
     if (authLoading) return;
 
-    const currentSegment = segments[0] || "index";
-    const inPublicRoute = PUBLIC_SEGMENTS.includes(currentSegment);
+    const currentSegment = (segments[0] as string) || "";
+    const isAuthRoute = currentSegment === "auth";
 
-    if (!user && !inPublicRoute) {
-      // Not signed in → redirect to login
+    if (!user && !isAuthRoute) {
       router.replace("/auth/login");
-    } else if (user && inPublicRoute && currentSegment === "auth") {
-      // Already signed in → redirect to app
+    } else if (user && isAuthRoute) {
       router.replace("/(tabs)");
     }
   }, [user, authLoading, segments]);
