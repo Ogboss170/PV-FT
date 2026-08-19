@@ -2,14 +2,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
 import { AVATAR_GRADIENTS } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
-
 import InviteFriendsModal from "@/src/components/InviteFriendsModal";
+import { logout } from "@/src/services/authService";
 
 type Row = {
   icon: string;
@@ -28,6 +28,24 @@ export default function Settings() {
   const [readReceipts, setReadReceipts] = useState(false);
   const [darkMode] = useState(true);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out of Private Voices?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Log Out",
+          style: "destructive",
+          onPress: async () => {
+            await logout();
+            router.replace("/auth/login");
+          },
+        },
+      ]
+    );
+  };
 
   const sections: { title: string; rows: (Row & { onToggle?: (v: boolean) => void; toggleValue?: boolean })[] }[] = [
     {
@@ -58,10 +76,11 @@ export default function Settings() {
     {
       title: "Account",
       rows: [
-        { icon: "log-out-outline", label: "Log out", destructive: true },
+        { icon: "log-out-outline", label: "Log out", destructive: true, onPress: handleLogout },
       ],
     },
   ];
+
 
   return (
     <View style={styles.container} testID="settings-screen">

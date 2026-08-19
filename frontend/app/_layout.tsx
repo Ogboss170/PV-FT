@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -8,20 +8,47 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { DesktopShell } from "@/src/components/DesktopShell";
+import { useAuthState } from "@/src/services/authService";
 
-// Disable logbox errors etc so that users can see the app
-// and agent works as expected.
+// Disable logbox errors so users can see the app
 LogBox.ignoreAllLogs(true);
 
-// Keep the native splash visible from cold start until icon fonts register.
+// Keep the native splash visible until fonts are ready
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
-  const [loaded, error] = useIconFonts();
+// Routes that don't require authentication
+const PUBLIC_SEGMENTS = ["auth", "w"];
 
+export default function RootLayout() {
+  const [loaded] = useIconFonts();
+  const { user, loading: authLoading } = useAuthState();
+  const segments = useSegments();
+  const router = useRouter();
+
+  // Hide splash once fonts + auth state are both resolved
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
+    if (!authLoading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [authLoading]);
+
+  // Auth guard — runs whenever auth state or route changes
+  useEffect(() => {
+    if (authLoading) return;
+
+    const inPublicRoute = PUBLIC_SEGMENTS.some((seg) => segments[0] === seg);
+
+    if (!user && !inPublicRoute) {
+      // Not signed in → redirect to login
+      router.replace("/auth/login");
+    } else if (user && inPublicRoute && segments[0] === "auth") {
+      // Already signed in → redirect to app
+      router.replace("/(tabs)");
+    }
+  }, [user, authLoading, segments]);
+
+  // Don't render until auth state is resolved (prevents flash)
+  if (authLoading) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0F172A" }}>

@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,6 +17,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, font, radii, spacing } from "@/src/theme";
+import {
+  loginWithEmail,
+  loginWithGoogle,
+  getFriendlyError,
+} from "@/src/services/authService";
 
 export default function Login() {
   const router = useRouter();
@@ -23,13 +29,42 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = identifier.length > 0 && password.length >= 6;
+  const canSubmit = identifier.trim().length > 0 && password.length >= 6;
 
-  const onLogin = () => {
-    if (!canSubmit) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.replace("/(tabs)");
+  const onLogin = async () => {
+    if (!canSubmit || loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await loginWithEmail(identifier.trim(), password);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/(tabs)");
+    } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setError(getFriendlyError(err.code));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onGoogleLogin = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/(tabs)");
+    } catch (err: any) {
+      if (err.code !== "auth/popup-closed-by-user") {
+        setError(getFriendlyError(err.code));
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -71,23 +106,33 @@ export default function Login() {
               </Text>
             </View>
 
+            {/* Error Banner */}
+            {error && (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={16} color={colors.error} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
             {/* Glass card */}
             <View style={styles.card}>
               {/* Username / Email */}
-              <Text style={styles.label}>Username or Email</Text>
+              <Text style={styles.label}>Email</Text>
               <View style={[styles.inputWrap, focus === "id" && styles.inputFocused]}>
-                <Ionicons name="person-outline" size={18} color={focus === "id" ? colors.brand : colors.onSurfaceMuted} />
+                <Ionicons name="mail-outline" size={18} color={focus === "id" ? colors.brand : colors.onSurfaceMuted} />
                 <TextInput
                   value={identifier}
-                  onChangeText={setIdentifier}
-                  placeholder="Enter username or email"
+                  onChangeText={(t) => { setIdentifier(t); setError(null); }}
+                  placeholder="Enter your email"
                   placeholderTextColor={colors.onSurfaceDim}
                   autoCapitalize="none"
                   keyboardType="email-address"
+                  autoComplete="email"
                   onFocus={() => setFocus("id")}
                   onBlur={() => setFocus(null)}
                   style={styles.input}
                   testID="login-identifier-input"
+                  editable={!loading}
                 />
               </View>
 
@@ -97,14 +142,18 @@ export default function Login() {
                 <Ionicons name="lock-closed-outline" size={18} color={focus === "pwd" ? colors.brand : colors.onSurfaceMuted} />
                 <TextInput
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(t) => { setPassword(t); setError(null); }}
                   placeholder="Enter password"
                   placeholderTextColor={colors.onSurfaceDim}
                   secureTextEntry={!showPassword}
+                  autoComplete="password"
                   onFocus={() => setFocus("pwd")}
                   onBlur={() => setFocus(null)}
                   style={styles.input}
                   testID="login-password-input"
+                  editable={!loading}
+                  onSubmitEditing={onLogin}
+                  returnKeyType="go"
                 />
                 <TouchableOpacity onPress={() => setShowPassword((v) => !v)} testID="login-show-password">
                   <Ionicons
@@ -128,8 +177,8 @@ export default function Login() {
               <TouchableOpacity
                 onPress={onLogin}
                 activeOpacity={0.85}
-                disabled={!canSubmit}
-                style={[styles.primaryBtn, !canSubmit && { opacity: 0.5 }]}
+                disabled={!canSubmit || loading}
+                style={[styles.primaryBtn, (!canSubmit || loading) && { opacity: 0.6 }]}
                 testID="login-submit-btn"
               >
                 <LinearGradient
@@ -138,8 +187,14 @@ export default function Login() {
                   end={{ x: 1, y: 0 }}
                   style={StyleSheet.absoluteFillObject}
                 />
-                <Text style={styles.primaryText}>Login</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.primaryText}>Login</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                  </>
+                )}
               </TouchableOpacity>
 
               {/* Divider */}
@@ -149,14 +204,16 @@ export default function Login() {
                 <View style={styles.dividerLine} />
               </View>
 
-              {/* Social auth */}
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.85} testID="login-google-btn">
+              {/* Google auth */}
+              <TouchableOpacity
+                style={styles.socialBtn}
+                activeOpacity={0.85}
+                testID="login-google-btn"
+                onPress={onGoogleLogin}
+                disabled={loading}
+              >
                 <Ionicons name="logo-google" size={18} color="#F8FAFC" />
                 <Text style={styles.socialText}>Continue with Google</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.socialBtn, { marginTop: 10 }]} activeOpacity={0.85} testID="login-apple-btn">
-                <Ionicons name="logo-apple" size={20} color="#F8FAFC" />
-                <Text style={styles.socialText}>Continue with Apple</Text>
               </TouchableOpacity>
             </View>
 
@@ -228,6 +285,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingHorizontal: spacing.md,
   },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(239,68,68,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.35)",
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  errorText: { ...font.caption, color: colors.error, flex: 1 },
   card: {
     backgroundColor: colors.surfaceSecondary,
     borderRadius: radii.xl,
@@ -303,8 +373,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 10,
   },
-  socialText: { color: colors.onSurface, fontSize: 14, fontWeight: "700", marginLeft: 10 },
+  socialText: { color: colors.onSurface, fontSize: 14, fontWeight: "700" },
   registerRow: { alignItems: "center", marginTop: spacing.xl },
   registerHint: { ...font.caption, color: colors.onSurfaceMuted },
   createBtn: {

@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,20 +17,40 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, font, radii, spacing } from "@/src/theme";
+import { resetPassword, getFriendlyError } from "@/src/services/authService";
 
 export default function ForgotPassword() {
   const router = useRouter();
   const [value, setValue] = useState("");
   const [focus, setFocus] = useState(false);
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const canSend = value.length >= 3;
+  const canSend = /^\S+@\S+\.\S+$/.test(value.trim());
 
-  const onSend = () => {
-    if (!canSend) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setSent(true);
+  const onSend = async () => {
+    if (!canSend || loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await resetPassword(value.trim());
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSent(true);
+    } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // For security, don't reveal if email exists — show success anyway
+      if (err.code === "auth/user-not-found") {
+        setSent(true);
+      } else {
+        setError(getFriendlyError(err.code));
+      }
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   return (
     <View style={styles.container} testID="forgot-password-screen">
@@ -80,28 +101,39 @@ export default function ForgotPassword() {
             {/* Card */}
             {!sent ? (
               <View style={styles.card}>
-                <Text style={styles.label}>Email or Username</Text>
+                {/* Error Banner */}
+                {error && (
+                  <View style={styles.errorBanner}>
+                    <Ionicons name="alert-circle" size={16} color={colors.error} />
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                )}
+                <Text style={styles.label}>Email</Text>
                 <View style={[styles.inputWrap, focus && styles.inputFocused]}>
-                  <Ionicons name="at" size={18} color={focus ? colors.brand : colors.onSurfaceMuted} />
+                  <Ionicons name="mail-outline" size={18} color={focus ? colors.brand : colors.onSurfaceMuted} />
                   <TextInput
                     value={value}
-                    onChangeText={setValue}
-                    placeholder="Enter email or username"
+                    onChangeText={(t) => { setValue(t); setError(null); }}
+                    placeholder="Enter your account email"
                     placeholderTextColor={colors.onSurfaceDim}
                     autoCapitalize="none"
                     keyboardType="email-address"
+                    autoComplete="email"
                     onFocus={() => setFocus(true)}
                     onBlur={() => setFocus(false)}
                     style={styles.input}
                     testID="forgot-input"
+                    editable={!loading}
+                    onSubmitEditing={onSend}
+                    returnKeyType="send"
                   />
                 </View>
 
                 <TouchableOpacity
                   onPress={onSend}
-                  disabled={!canSend}
+                  disabled={!canSend || loading}
                   activeOpacity={0.85}
-                  style={[styles.primaryBtn, !canSend && { opacity: 0.5, shadowOpacity: 0 }]}
+                  style={[styles.primaryBtn, (!canSend || loading) && { opacity: 0.5, shadowOpacity: 0 }]}
                   testID="forgot-submit-btn"
                 >
                   <LinearGradient
@@ -110,9 +142,16 @@ export default function ForgotPassword() {
                     end={{ x: 1, y: 0 }}
                     style={StyleSheet.absoluteFillObject}
                   />
-                  <Ionicons name="send" size={16} color="#FFFFFF" />
-                  <Text style={styles.primaryText}>Send Reset Link</Text>
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="send" size={16} color="#FFFFFF" />
+                      <Text style={styles.primaryText}>Send Reset Link</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
+
 
                 <View style={styles.safeRow}>
                   <Ionicons name="shield-checkmark" size={13} color={colors.success} />
@@ -261,6 +300,19 @@ const styles = StyleSheet.create({
   },
   inputFocused: { borderColor: colors.brand, backgroundColor: "rgba(6,182,212,0.06)" },
   input: { flex: 1, color: colors.onSurface, fontSize: 15, fontWeight: "500" },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(239,68,68,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.35)",
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  errorText: { ...font.caption, color: colors.error, flex: 1 },
   primaryBtn: {
     height: 54,
     borderRadius: radii.md,

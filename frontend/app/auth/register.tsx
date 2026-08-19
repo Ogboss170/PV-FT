@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, font, radii, spacing } from "@/src/theme";
+import { registerWithEmail, loginWithGoogle, getFriendlyError } from "@/src/services/authService";
 
 function passwordStrength(pwd: string): { score: number; label: string; color: string } {
   let score = 0;
@@ -37,6 +39,8 @@ export default function Register() {
   const [showPwd, setShowPwd] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const strength = useMemo(() => passwordStrength(password), [password]);
   const passwordsMatch = password.length > 0 && password === confirm;
@@ -48,10 +52,37 @@ export default function Register() {
     passwordsMatch &&
     agreed;
 
-  const onSubmit = () => {
-    if (!canSubmit) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.replace("/create-profile");
+  const onSubmit = async () => {
+    if (!canSubmit || loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await registerWithEmail(email.trim(), password, username.trim());
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/create-profile");
+    } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setError(getFriendlyError(err.code));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onGoogleSignup = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/create-profile");
+    } catch (err: any) {
+      if (err.code !== "auth/popup-closed-by-user") {
+        setError(getFriendlyError(err.code));
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -96,15 +127,40 @@ export default function Register() {
               </Text>
             </View>
 
+            {/* Error Banner */}
+            {error && (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={16} color={colors.error} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
             {/* Form Card */}
             <View style={styles.card}>
+              {/* Google signup */}
+              <TouchableOpacity
+                style={styles.socialBtn}
+                activeOpacity={0.85}
+                onPress={onGoogleSignup}
+                disabled={loading}
+              >
+                <Ionicons name="logo-google" size={18} color="#F8FAFC" />
+                <Text style={styles.socialText}>Continue with Google</Text>
+              </TouchableOpacity>
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
               {/* Username */}
               <Text style={styles.label}>Anonymous username</Text>
               <View style={[styles.inputWrap, focus === "u" && styles.inputFocused]}>
                 <Ionicons name="person-outline" size={18} color={focus === "u" ? colors.brand : colors.onSurfaceMuted} />
                 <TextInput
                   value={username}
-                  onChangeText={setUsername}
+                  onChangeText={(t) => { setUsername(t); setError(null); }}
                   placeholder="Choose your anonymous username"
                   placeholderTextColor={colors.onSurfaceDim}
                   autoCapitalize="none"
@@ -113,6 +169,7 @@ export default function Register() {
                   onBlur={() => setFocus(null)}
                   style={styles.input}
                   testID="register-username-input"
+                  editable={!loading}
                 />
                 {username.length >= 3 && (
                   <Ionicons name="checkmark-circle" size={18} color={colors.success} />
@@ -125,15 +182,17 @@ export default function Register() {
                 <Ionicons name="mail-outline" size={18} color={focus === "e" ? colors.brand : colors.onSurfaceMuted} />
                 <TextInput
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(t) => { setEmail(t); setError(null); }}
                   placeholder="Used only for account security"
                   placeholderTextColor={colors.onSurfaceDim}
                   autoCapitalize="none"
                   keyboardType="email-address"
+                  autoComplete="email"
                   onFocus={() => setFocus("e")}
                   onBlur={() => setFocus(null)}
                   style={styles.input}
                   testID="register-email-input"
+                  editable={!loading}
                 />
               </View>
               <View style={styles.hintRow}>
@@ -147,14 +206,16 @@ export default function Register() {
                 <Ionicons name="lock-closed-outline" size={18} color={focus === "p" ? colors.brand : colors.onSurfaceMuted} />
                 <TextInput
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(t) => { setPassword(t); setError(null); }}
                   placeholder="Create a secure password"
                   placeholderTextColor={colors.onSurfaceDim}
                   secureTextEntry={!showPwd}
+                  autoComplete="new-password"
                   onFocus={() => setFocus("p")}
                   onBlur={() => setFocus(null)}
                   style={styles.input}
                   testID="register-password-input"
+                  editable={!loading}
                 />
                 <TouchableOpacity onPress={() => setShowPwd((v) => !v)}>
                   <Ionicons
@@ -195,7 +256,7 @@ export default function Register() {
                 <Ionicons name="lock-closed-outline" size={18} color={focus === "c" ? colors.brand : colors.onSurfaceMuted} />
                 <TextInput
                   value={confirm}
-                  onChangeText={setConfirm}
+                  onChangeText={(t) => { setConfirm(t); setError(null); }}
                   placeholder="Re-enter your password"
                   placeholderTextColor={colors.onSurfaceDim}
                   secureTextEntry={!showPwd}
@@ -203,6 +264,9 @@ export default function Register() {
                   onBlur={() => setFocus(null)}
                   style={styles.input}
                   testID="register-confirm-input"
+                  editable={!loading}
+                  onSubmitEditing={onSubmit}
+                  returnKeyType="go"
                 />
                 {confirm.length > 0 && passwordsMatch && (
                   <Ionicons name="checkmark-circle" size={18} color={colors.success} />
@@ -233,8 +297,8 @@ export default function Register() {
               <TouchableOpacity
                 onPress={onSubmit}
                 activeOpacity={0.85}
-                disabled={!canSubmit}
-                style={[styles.primaryBtn, !canSubmit && { opacity: 0.5, shadowOpacity: 0 }]}
+                disabled={!canSubmit || loading}
+                style={[styles.primaryBtn, (!canSubmit || loading) && { opacity: 0.5, shadowOpacity: 0 }]}
                 testID="register-submit-btn"
               >
                 <LinearGradient
@@ -243,8 +307,14 @@ export default function Register() {
                   end={{ x: 1, y: 0 }}
                   style={StyleSheet.absoluteFillObject}
                 />
-                <Text style={styles.primaryText}>Create Account</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.primaryText}>Create Account</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                  </>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -315,6 +385,19 @@ const styles = StyleSheet.create({
   },
   title: { ...font.h1, fontSize: 24, marginTop: spacing.md, letterSpacing: -0.3 },
   subtitle: { ...font.caption, marginTop: 6, textAlign: "center" },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(239,68,68,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.35)",
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  errorText: { ...font.caption, color: colors.error, flex: 1 },
   card: {
     backgroundColor: colors.surfaceSecondary,
     borderRadius: radii.xl,
@@ -326,6 +409,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 20,
     elevation: 6,
+  },
+  socialBtn: {
+    height: 50,
+    borderRadius: radii.md,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.glassBorder,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  socialText: { color: colors.onSurface, fontSize: 14, fontWeight: "700" },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: spacing.md,
+  },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.divider },
+  dividerText: {
+    ...font.small,
+    marginHorizontal: 12,
+    letterSpacing: 2,
+    fontWeight: "700",
+    color: colors.onSurfaceDim,
   },
   label: {
     ...font.caption,
