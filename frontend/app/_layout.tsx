@@ -35,12 +35,10 @@ export default function RootLayout() {
     if (authLoading) return;
 
     const currentSegment = (segments[0] as string) || "";
-    const isAuthRoute = currentSegment === "auth";
+    const isPublic = ["auth", "w", "create-profile", "index", "onboarding", ""].includes(currentSegment);
 
-    if (!user && !isAuthRoute) {
+    if (!user && !isPublic) {
       router.replace("/auth/login");
-    } else if (user && isAuthRoute) {
-      router.replace("/(tabs)");
     }
   }, [user, authLoading, segments]);
 
