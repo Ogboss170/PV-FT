@@ -37,21 +37,28 @@ export const subscribeToNotifications = (
   const notifRef = collection(db, "notifications");
   const q = query(notifRef, where("recipientId", "==", userId), orderBy("createdAt", "desc"));
 
-  return onSnapshot(q, (snapshot) => {
-    const list: Notification[] = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        type: data.type || "like",
-        actor: data.actor || "Anonymous Voice",
-        actorGradient: data.actorGradient || ["#06B6D4", "#0284C7"],
-        text: data.text || "",
-        time: data.createdAt ? "Just now" : "1m",
-        unread: data.unread ?? true,
-      };
-    });
-    callback(list);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list: Notification[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          type: data.type || "like",
+          actor: data.actor || "Anonymous Voice",
+          actorGradient: data.actorGradient || ["#06B6D4", "#0284C7"],
+          text: data.text || "",
+          time: data.createdAt ? "Just now" : "1m",
+          unread: data.unread ?? true,
+        };
+      });
+      callback(list);
+    },
+    (err) => {
+      console.warn("Firestore notifications listener warning:", err);
+      callback([]);
+    }
+  );
 };
 
 export const createNotificationInFirestore = async (notifData: {

@@ -16,22 +16,29 @@ import { Community } from "../mockData";
 
 export const subscribeToCommunities = (callback: (communities: Community[]) => void) => {
   const commRef = collection(db, "communities");
-  return onSnapshot(commRef, (snapshot) => {
-    const list: Community[] = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        name: data.name,
-        emoji: data.emoji,
-        description: data.description,
-        members: `${data.memberCount || 0} members`,
-        cover: data.cover,
-        gradient: data.gradient || ["#06B6D4", "#0284C7"],
-        joined: false,
-      };
-    });
-    callback(list);
-  });
+  return onSnapshot(
+    commRef,
+    (snapshot) => {
+      const list: Community[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          name: data.name,
+          emoji: data.emoji,
+          description: data.description,
+          members: `${data.memberCount || 0} members`,
+          cover: data.cover,
+          gradient: data.gradient || ["#06B6D4", "#0284C7"],
+          joined: false,
+        };
+      });
+      callback(list);
+    },
+    (err) => {
+      console.warn("Firestore communities listener subscription warning:", err);
+      callback([]);
+    }
+  );
 };
 
 export const toggleJoinCommunityInFirestore = async (

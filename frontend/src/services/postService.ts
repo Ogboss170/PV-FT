@@ -20,29 +20,36 @@ export const subscribeToPosts = (callback: (posts: Post[]) => void) => {
   const postsRef = collection(db, "posts");
   const q = query(postsRef, orderBy("createdAt", "desc"), limit(50));
 
-  return onSnapshot(q, (snapshot) => {
-    const postsList: Post[] = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        username: data.username || "Anonymous Voice",
-        avatarColor: data.avatarColor || ["#06B6D4", "#0284C7"],
-        avatarIcon: data.avatarIcon || "flash",
-        community: data.community || "General",
-        communityEmoji: data.communityEmoji || "💬",
-        time: data.createdAt ? "Just now" : "1m",
-        text: data.text || "",
-        image: data.image,
-        poll: data.poll,
-        likes: data.likes || 0,
-        comments: data.commentsCount || 0,
-        reposts: data.reposts || 0,
-        liked: false,
-        saved: false,
-      };
-    });
-    callback(postsList);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const postsList: Post[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          username: data.username || "Anonymous Voice",
+          avatarColor: data.avatarColor || ["#06B6D4", "#0284C7"],
+          avatarIcon: data.avatarIcon || "flash",
+          community: data.community || "General",
+          communityEmoji: data.communityEmoji || "💬",
+          time: data.createdAt ? "Just now" : "1m",
+          text: data.text || "",
+          image: data.image,
+          poll: data.poll,
+          likes: data.likes || 0,
+          comments: data.commentsCount || 0,
+          reposts: data.reposts || 0,
+          liked: false,
+          saved: false,
+        };
+      });
+      callback(postsList);
+    },
+    (err) => {
+      console.warn("Firestore posts listener subscription warning:", err);
+      callback([]);
+    }
+  );
 };
 
 export const createPostInFirestore = async (postData: {

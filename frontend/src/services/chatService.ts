@@ -30,30 +30,37 @@ export const subscribeToChatThreads = (
   const threadsRef = collection(db, "chats");
   const q = query(threadsRef, where("participants", "array-contains", userId));
 
-  return onSnapshot(q, (snapshot) => {
-    const list: ChatThread[] = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      const otherParticipant = data.participantDetails?.find(
-        (p: any) => p.uid !== userId
-      ) || {
-        nickname: "Anonymous Voice",
-        avatarColor: ["#06B6D4", "#0284C7"],
-        avatarIcon: "flash",
-      };
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list: ChatThread[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        const otherParticipant = data.participantDetails?.find(
+          (p: any) => p.uid !== userId
+        ) || {
+          nickname: "Anonymous Voice",
+          avatarColor: ["#06B6D4", "#0284C7"],
+          avatarIcon: "flash",
+        };
 
-      return {
-        id: docSnap.id,
-        nickname: otherParticipant.nickname,
-        avatarColor: otherParticipant.avatarColor,
-        avatarIcon: otherParticipant.avatarIcon,
-        lastMessage: data.lastMessage || "",
-        time: data.updatedAt ? "Just now" : "1m",
-        unread: data.unreadCount?.[userId] || 0,
-        online: true,
-      };
-    });
-    callback(list);
-  });
+        return {
+          id: docSnap.id,
+          nickname: otherParticipant.nickname,
+          avatarColor: otherParticipant.avatarColor,
+          avatarIcon: otherParticipant.avatarIcon,
+          lastMessage: data.lastMessage || "",
+          time: data.updatedAt ? "Just now" : "1m",
+          unread: data.unreadCount?.[userId] || 0,
+          online: true,
+        };
+      });
+      callback(list);
+    },
+    (err) => {
+      console.warn("Firestore chat threads listener warning:", err);
+      callback([]);
+    }
+  );
 };
 
 export const subscribeToMessages = (
@@ -64,20 +71,27 @@ export const subscribeToMessages = (
   const messagesRef = collection(db, "chats", chatId, "messages");
   const q = query(messagesRef, orderBy("createdAt", "asc"));
 
-  return onSnapshot(q, (snapshot) => {
-    const msgs: MessageItem[] = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        senderId: data.senderId,
-        text: data.text,
-        createdAt: data.createdAt,
-        fromMe: data.senderId === currentUserId,
-        time: "Just now",
-      };
-    });
-    callback(msgs);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list: MessageItem[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          senderId: data.senderId,
+          text: data.text,
+          createdAt: data.createdAt,
+          fromMe: data.senderId === currentUserId,
+          time: data.createdAt ? "Just now" : "1m",
+        };
+      });
+      callback(list);
+    },
+    (err) => {
+      console.warn("Firestore messages listener warning:", err);
+      callback([]);
+    }
+  );
 };
 
 export const sendMessageInFirestore = async (
