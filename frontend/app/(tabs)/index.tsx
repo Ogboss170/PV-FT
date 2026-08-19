@@ -1,15 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState, useEffect } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import React, { useState, useEffect, useMemo } from "react";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PostCard from "@/src/components/PostCard";
 import { Post, posts as fallbackPosts } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { subscribeToPosts } from "@/src/services/postService";
-import { ensureAnonymousAuth } from "@/src/services/authService";
+import { ensureAnonymousAuth, auth } from "@/src/services/authService";
 
 const FILTERS = ["For You", "Following", "Trending", "Communities", "Recent"];
 
@@ -19,19 +19,36 @@ export default function Home() {
   const [filter, setFilter] = useState(0);
   const [postsList, setPostsList] = useState<Post[]>(fallbackPosts);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    ensureAnonymousAuth().catch(console.error);
+    ensureAnonymousAuth().catch(console.warn);
 
     const unsubscribe = subscribeToPosts((livePosts) => {
       if (livePosts.length > 0) {
         setPostsList(livePosts);
       }
       setLoading(false);
+      setRefreshing(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  // Filter posts based on selected tab
+  const filteredPosts = useMemo(() => {
+    if (filter === 0) return postsList; // For You
+    if (filter === 1) return postsList.filter((p) => p.community !== "General"); // Following
+    if (filter === 2) return [...postsList].sort((a, b) => b.likes - a.likes); // Trending
+    if (filter === 3) return postsList.filter((p) => Boolean(p.community)); // Communities
+    return [...postsList].reverse(); // Recent
+  }, [postsList, filter]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    // Safety timeout in case network is offline
+    setTimeout(() => setRefreshing(false), 2000);
+  };
 
   return (
     <View style={styles.container} testID="home-screen">
@@ -86,11 +103,19 @@ export default function Home() {
       </SafeAreaView>
 
       <FlatList
-        data={postsList}
+        data={filteredPosts}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => <PostCard post={item} />}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: 8, paddingBottom: 120 + insets.bottom }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.brand}
+            colors={[colors.brand]}
+          />
+        }
         ListHeaderComponent={
           <View style={styles.aiCard}>
             <LinearGradient
@@ -140,19 +165,18 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   logoText: { ...font.h2, fontSize: 18, letterSpacing: -0.3 },
-  iconsRow: { flexDirection: "row", alignItems: "center" },
+  iconsRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   iconBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: colors.surfaceSecondary,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 8,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: colors.glassBorder,
   },
   badge: {
@@ -163,59 +187,53 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.brand,
-    borderWidth: 1.5,
-    borderColor: colors.surface,
   },
   chipsContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    gap: 8,
+    paddingBottom: spacing.sm,
+    gap: spacing.xs,
   },
   chip: {
-    height: 36,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
     borderColor: colors.glassBorder,
-    flexShrink: 0,
   },
   chipActive: {
     backgroundColor: colors.brandSoft,
     borderColor: colors.brandBorder,
   },
   chipText: { ...font.caption, color: colors.onSurfaceMuted, fontWeight: "600" },
-  chipTextActive: { color: colors.brand },
+  chipTextActive: { color: colors.brand, fontWeight: "700" },
   aiCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.md,
-    borderRadius: radii.xl,
-    marginBottom: spacing.lg,
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.brandBorder,
     backgroundColor: colors.surfaceSecondary,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    overflow: "hidden",
+    gap: spacing.md,
   },
   aiIconWrap: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.brandSoft,
+    backgroundColor: "rgba(6,182,212,0.15)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.brandBorder,
   },
   aiTitle: { ...font.title, fontSize: 14 },
   aiSub: { ...font.small, marginTop: 2 },
   aiBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radii.pill,
     backgroundColor: colors.brand,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radii.pill,
   },
   aiBtnText: { color: "#0F172A", fontWeight: "700", fontSize: 12 },
 });
