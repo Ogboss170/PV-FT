@@ -9,6 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import Avatar from "@/src/components/Avatar";
 import PostCard from "@/src/components/PostCard";
+import InviteFriendsModal from "@/src/components/InviteFriendsModal";
 import { AVATAR_GRADIENTS, communities, posts } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 
@@ -45,6 +46,7 @@ export default function CommunityDetail() {
   const [tab, setTab] = useState(0);
   const [joined, setJoined] = useState(!!community.joined);
   const [notify, setNotify] = useState(false);
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
   const feed = posts.filter((p) => p.community === community.name).length > 0
     ? posts.filter((p) => p.community === community.name)
@@ -160,7 +162,12 @@ export default function CommunityDetail() {
                   {joined ? "Joined" : "Join community"}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryBtn} activeOpacity={0.85} testID="community-invite-btn">
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                activeOpacity={0.85}
+                testID="community-invite-btn"
+                onPress={() => setInviteModalVisible(true)}
+              >
                 <Ionicons name="paper-plane-outline" size={16} color={colors.onSurface} />
                 <Text style={styles.secondaryText}>Invite</Text>
               </TouchableOpacity>
@@ -295,6 +302,11 @@ export default function CommunityDetail() {
         />
         <Ionicons name="add" size={26} color="#0F172A" />
       </TouchableOpacity>
+
+      <InviteFriendsModal
+        visible={inviteModalVisible}
+        onClose={() => setInviteModalVisible(false)}
+      />
     </View>
   );
 }

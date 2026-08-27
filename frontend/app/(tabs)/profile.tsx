@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import Avatar from "@/src/components/Avatar";
 import PostCard from "@/src/components/PostCard";
+import InviteFriendsModal from "@/src/components/InviteFriendsModal";
 import { achievements, AVATAR_GRADIENTS, communities, posts } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { getUserProfile, UserProfile } from "@/src/services/authService";
@@ -29,6 +30,7 @@ export default function Profile() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
   useEffect(() => {
     const uid = auth.currentUser?.uid;
@@ -161,7 +163,11 @@ export default function Profile() {
               <Ionicons name="create-outline" size={16} color="#0F172A" />
               <Text style={styles.primaryText}>Edit Profile</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryBtn} testID="profile-invite-btn">
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              testID="profile-invite-btn"
+              onPress={() => setInviteModalVisible(true)}
+            >
               <Ionicons name="person-add-outline" size={18} color={colors.onSurface} />
               <Text style={styles.secondaryText}>Invite</Text>
             </TouchableOpacity>
@@ -352,6 +358,11 @@ export default function Profile() {
           </View>
         </View>
       </ScrollView>
+
+      <InviteFriendsModal
+        visible={inviteModalVisible}
+        onClose={() => setInviteModalVisible(false)}
+      />
     </View>
   );
 }

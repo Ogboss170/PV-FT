@@ -31,17 +31,25 @@ const SHARE_CHANNELS = [
 
 export default function InviteFriendsModal({ visible, onClose }: Props) {
   const [copied, setCopied] = useState(false);
-  const handle = "ShadowFox_42";
-  const inviteUrl = `https://privatevoices.app/w/@${handle}`;
+  const handle = auth.currentUser?.displayName || auth.currentUser?.email?.split("@")[0] || "ShadowFox_42";
+  const inviteUrl = `https://privatevoices.vercel.app/w/@${handle}`;
 
   const handleShare = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try {
-      await Share.share({
-        message: `Send me an anonymous whisper on Private Voices! 🎙️\n${inviteUrl}`,
-        url: inviteUrl,
-        title: "Private Voices Anonymous Invite",
-      });
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title: "Private Voices Anonymous Invite",
+          text: `Send me an anonymous whisper on Private Voices! 🎙️`,
+          url: inviteUrl,
+        });
+      } else {
+        await Share.share({
+          message: `Send me an anonymous whisper on Private Voices! 🎙️\n${inviteUrl}`,
+          url: inviteUrl,
+          title: "Private Voices Anonymous Invite",
+        });
+      }
     } catch (e) {
       console.error(e);
     }
@@ -49,6 +57,9 @@ export default function InviteFriendsModal({ visible, onClose }: Props) {
 
   const handleCopy = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(inviteUrl);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
