@@ -82,17 +82,18 @@ export default function Create() {
     }
 
     setSubmitting(true);
+    const handle = auth?.currentUser?.displayName || auth?.currentUser?.email?.split("@")[0] || "Anonymous";
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await createPostInFirestore({
-        username: "ShadowFox_42",
+        username: handle,
         avatarColor: AVATAR_GRADIENTS[0],
         avatarIcon: "flash",
-        community: community.name,
-        communityEmoji: community.emoji,
+        community: "Public Feed",
+        communityEmoji: "🌐",
         text: text.trim(),
         image: imageUrl || undefined,
-        userId: auth.currentUser?.uid || "anon-user",
+        userId: auth?.currentUser?.uid || "anon-user",
         ...(pollMode && pollOptions.filter(o => o.trim()).length >= 2 ? {
           poll: {
             question: text.trim() || "Community Poll",
@@ -109,6 +110,8 @@ export default function Create() {
     }
   };
 
+  const handle = auth?.currentUser?.displayName || auth?.currentUser?.email?.split("@")[0] || "Anonymous";
+
   return (
     <View style={styles.container} testID="create-post-screen">
       <LinearGradient
@@ -120,14 +123,7 @@ export default function Create() {
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} testID="create-cancel">
           <Ionicons name="close" size={22} color={colors.onSurface} />
         </TouchableOpacity>
-        <View style={styles.communityPicker}>
-          <Text style={styles.communityLabel}>Posting to</Text>
-          <TouchableOpacity style={styles.communityBtn} testID="create-community-picker">
-            <Text style={styles.communityEmoji}>{community.emoji}</Text>
-            <Text style={styles.communityName}>{community.name}</Text>
-            <Ionicons name="chevron-down" size={14} color={colors.brand} />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.headerTitle}>Create Post</Text>
         <TouchableOpacity onPress={onPost} activeOpacity={0.85} testID="create-post-submit">
           <LinearGradient
             colors={["#06B6D4", "#0284C7"]}
@@ -153,7 +149,7 @@ export default function Create() {
           <View style={styles.authorRow}>
             <Avatar size={44} gradient={AVATAR_GRADIENTS[0]} icon="flash" />
             <View style={{ marginLeft: spacing.md, flex: 1 }}>
-              <Text style={styles.authorName}>@ShadowFox_42</Text>
+              <Text style={styles.authorName}>@{handle}</Text>
               <View style={styles.anonRow}>
                 <Ionicons name="shield-checkmark" size={12} color={colors.success} />
                 <Text style={styles.anonText}>Anonymous · always on</Text>
@@ -299,19 +295,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  communityPicker: { alignItems: "center" },
-  communityLabel: { ...font.small, marginBottom: 2 },
-  communityBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.brandSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.brandBorder,
-  },
-  communityEmoji: { fontSize: 13, marginRight: 4 },
+  headerTitle: { ...font.h3, fontSize: 17, color: colors.onSurface },
   communityName: { color: colors.brand, fontWeight: "700", fontSize: 13, marginRight: 4 },
   postBtn: {
     height: 40,
