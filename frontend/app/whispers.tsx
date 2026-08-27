@@ -2,9 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   FlatList,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -17,10 +18,9 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Whisper, whispers as initialWhispers } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { auth } from "@/src/firebase";
 
-const LINK_HANDLE = "ShadowFox_42";
-const BASE = "privatevoices.app/w";
-const FULL_LINK = `${BASE}/@${LINK_HANDLE}`;
+const BASE_URL = "https://privatevoices.vercel.app/w";
 
 const SHARE_TARGETS = [
   { key: "whatsapp", label: "WhatsApp", icon: "logo-whatsapp", color: "#25D366" },
@@ -79,6 +79,15 @@ export default function Whispers() {
   const [showQR, setShowQR] = useState(false);
   const [messages, setMessages] = useState<Whisper[]>(initialWhispers);
 
+  // ── Real user handle ──────────────────────────────────────
+  const user = auth?.currentUser;
+  const handle: string =
+    user?.displayName?.trim()
+      ? user.displayName.trim()
+      : user?.email?.split("@")[0] ?? user?.uid ?? "anonymous";
+  const fullLink = `${BASE_URL}/@${handle}`;
+  // ─────────────────────────────────────────────────────────
+
   const stats = useMemo(() => {
     const total = messages.length;
     const unread = messages.filter((m) => m.unread).length;
@@ -92,17 +101,32 @@ export default function Whispers() {
     return messages;
   }, [messages, filter]);
 
-  const qr = useMemo(() => buildPattern(LINK_HANDLE, 13), []);
+  const qr = useMemo(() => buildPattern(handle, 13), [handle]);
 
-  const onCopy = () => {
+  const onCopy = async () => {
+    try {
+      if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(fullLink);
+      }
+    } catch (_) {}
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const openWhisper = (id: string) => {
-    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, unread: false } : m)));
-    Haptics.selectionAsync();
+  const onShare = async () => {
+    try {
+      if (Platform.OS === "web" && typeof navigator !== "undefined" && (navigator as any).share) {
+        await (navigator as any).share({
+          title: "Send me an anonymous whisper",
+          text: prompt,
+          url: fullLink,
+        });
+        return;
+      }
+    } catch (_) {}
+    // Fallback: copy to clipboard
+    await onCopy();
   };
 
   return (
@@ -151,7 +175,7 @@ export default function Whispers() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.linkKicker}>YOUR PERSONAL LINK</Text>
-                <Text style={styles.linkHandle} numberOfLines={1}>@{LINK_HANDLE}</Text>
+                <Text style={styles.linkHandle} numberOfLines={1}>@{handle}</Text>
               </View>
               <View style={[styles.statusPill, accepting ? styles.statusOn : styles.statusOff]}>
                 <View style={[styles.statusDot, { backgroundColor: accepting ? colors.success : colors.error }]} />
@@ -180,7 +204,7 @@ export default function Whispers() {
             <View style={styles.linkRow}>
               <View style={styles.linkPill}>
                 <Ionicons name="lock-closed" size={12} color={colors.brand} />
-                <Text style={styles.linkText} numberOfLines={1}>{FULL_LINK}</Text>
+                <Text style={styles.linkText} numberOfLines={1}>{fullLink}</Text>
               </View>
               <TouchableOpacity onPress={onCopy} style={styles.copyBtn} activeOpacity={0.85} testID="whispers-copy-link">
                 <Ionicons name={copied ? "checkmark" : "copy"} size={14} color="#0F172A" />
@@ -200,7 +224,7 @@ export default function Whispers() {
                 <Text style={styles.linkActionText}>{showQR ? "Hide QR" : "Show QR"}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => router.push({ pathname: "/w/[handle]", params: { handle: LINK_HANDLE } } as any)}
+                onPress={() => router.push({ pathname: "/w/[handle]", params: { handle } } as any)}
                 style={styles.linkActionBtn}
                 activeOpacity={0.8}
                 testID="whispers-preview"
@@ -208,9 +232,14 @@ export default function Whispers() {
                 <Ionicons name="eye-outline" size={16} color={colors.onSurface} />
                 <Text style={styles.linkActionText}>Preview</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.linkActionBtn} activeOpacity={0.8} testID="whispers-story">
-                <Ionicons name="image-outline" size={16} color={colors.onSurface} />
-                <Text style={styles.linkActionText}>Story card</Text>
+              <TouchableOpacity
+                onPress={onShare}
+                style={styles.linkActionBtn}
+                activeOpacity={0.8}
+                testID="whispers-story"
+              >
+                <Ionicons name="share-outline" size={16} color={colors.onSurface} />
+                <Text style={styles.linkActionText}>Share</Text>
               </TouchableOpacity>
             </View>
 

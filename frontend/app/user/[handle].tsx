@@ -104,11 +104,7 @@ export default function PublicProfile() {
               Softer conversations, kinder internet. Occasional midnight essays. Always anonymous, always sincere.
             </Text>
 
-            <View style={styles.tagsRow}>
-              <View style={styles.interestTag}><Text style={styles.interestText}>🧠 Mental Health</Text></View>
-              <View style={styles.interestTag}><Text style={styles.interestText}>💻 Technology</Text></View>
-              <View style={styles.interestTag}><Text style={styles.interestText}>❤️ Relationships</Text></View>
-            </View>
+
 
             {/* Mutual connections */}
             <View style={styles.mutualRow}>
