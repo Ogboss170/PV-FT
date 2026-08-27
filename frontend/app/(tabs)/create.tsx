@@ -31,6 +31,8 @@ const VISIBILITIES = [
   { key: "community", label: "Community", icon: "shield-half-outline" },
 ];
 
+import { pickImagesFromGallery } from "@/src/utils/imagePicker";
+
 export default function Create() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -40,7 +42,7 @@ export default function Create() {
   const [pollMode, setPollMode] = useState(false);
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [submitting, setSubmitting] = useState(false);
-  const [imageUrl, setImageUrl] = useState("");
+  const [images, setImages] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [safetyError, setSafetyError] = useState("");
 
@@ -53,19 +55,25 @@ export default function Create() {
     setPollOptions(next);
   };
 
-  const handlePickImage = () => {
-    const sampleImages = [
-      "https://images.unsplash.com/photo-1576344581549-060a332463d2?crop=entropy&cs=srgb&fm=jpg&q=85",
-      "https://images.unsplash.com/photo-1541702467897-41915a07d3a7?crop=entropy&cs=srgb&fm=jpg&q=85",
-      "https://images.unsplash.com/photo-1532883031962-d3574f99541b?crop=entropy&cs=srgb&fm=jpg&q=85",
-    ];
-    const picked = sampleImages[Math.floor(Math.random() * sampleImages.length)];
-    setImageUrl(picked);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const handlePickImage = async () => {
+    if (images.length >= 3) {
+      alert("You can attach up to 3 images per post.");
+      return;
+    }
+    const maxToPick = 3 - images.length;
+    const selected = await pickImagesFromGallery({ multiple: true, maxImages: maxToPick });
+    if (selected.length > 0) {
+      setImages((prev) => [...prev, ...selected].slice(0, 3));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const onPost = async () => {
-    if (!text.trim() && !pollMode && !imageUrl) return;
+    if (!text.trim() && !pollMode && images.length === 0) return;
     setSafetyError("");
 
     // 1. Rate limit check
@@ -92,7 +100,8 @@ export default function Create() {
         community: "Public Feed",
         communityEmoji: "🌐",
         text: text.trim(),
-        image: imageUrl || undefined,
+        image: images[0] || undefined,
+        images: images.length > 0 ? images : undefined,
         userId: auth?.currentUser?.uid || "anon-user",
         ...(pollMode && pollOptions.filter(o => o.trim()).length >= 2 ? {
           poll: {
@@ -168,7 +177,29 @@ export default function Create() {
             testID="create-post-text"
           />
 
-          {/* Poll */}
+          {/* Attached images preview */}
+          {images.length > 0 && (
+            <View style={styles.imagePreviewRow}>
+              {images.map((imgUri, idx) => (
+                <View key={idx} style={styles.imageThumbWrap}>
+                  <ExpoImage source={{ uri: imgUri }} style={styles.imageThumb} contentFit="cover" />
+                  <TouchableOpacity
+                    style={styles.removeImgBtn}
+                    onPress={() => handleRemoveImage(idx)}
+                    testID={`remove-image-${idx}`}
+                  >
+                    <Ionicons name="close" size={14} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {images.length < 3 && (
+                <TouchableOpacity style={styles.addMoreImgBtn} onPress={handlePickImage}>
+                  <Ionicons name="add" size={24} color={colors.brand} />
+                  <Text style={styles.addMoreImgText}>Add Image</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
           {pollMode && (
             <View style={styles.pollBuilder}>
               <View style={styles.pollHeader}>
@@ -451,5 +482,50 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     backgroundColor: "#FFFFFF",
+  },
+  imagePreviewRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  imageThumbWrap: {
+    position: "relative",
+    width: 90,
+    height: 90,
+    borderRadius: radii.md,
+    overflow: "hidden",
+  },
+  imageThumb: {
+    width: "100%",
+    height: "100%",
+  },
+  removeImgBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addMoreImgBtn: {
+    width: 90,
+    height: 90,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.brandBorder,
+    backgroundColor: colors.brandSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addMoreImgText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.brand,
+    marginTop: 2,
   },
 });

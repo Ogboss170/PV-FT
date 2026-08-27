@@ -23,6 +23,9 @@ import { colors, font, radii, spacing } from "@/src/theme";
 import { createUserProfile, ensureAnonymousAuth } from "@/src/services/authService";
 import { auth } from "@/src/firebase";
 
+import { Image as ExpoImage } from "expo-image";
+import { pickImagesFromGallery } from "@/src/utils/imagePicker";
+
 export default function CreateProfile() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -30,7 +33,16 @@ export default function CreateProfile() {
   const [gradientIdx, setGradientIdx] = useState(0);
   const [iconIdx, setIconIdx] = useState(0);
   const [themeIdx, setThemeIdx] = useState(0);
+  const [customAvatar, setCustomAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const handlePickCustomAvatar = async () => {
+    const selected = await pickImagesFromGallery({ multiple: false, maxImages: 1 });
+    if (selected.length > 0) {
+      setCustomAvatar(selected[0]);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  };
 
   const handleContinue = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -40,8 +52,8 @@ export default function CreateProfile() {
       if (currentUser?.uid) {
         await createUserProfile(currentUser.uid, {
           username: username.trim() || "ShadowFox_42",
-          avatarIcon: AVATAR_ICONS[iconIdx],
-          avatarGradient: AVATAR_GRADIENTS[gradientIdx] as any,
+          avatarIcon: customAvatar ? "custom" : AVATAR_ICONS[iconIdx],
+          avatarGradient: customAvatar ? [customAvatar, customAvatar] : (AVATAR_GRADIENTS[gradientIdx] as any),
           themeColor: THEME_COLORS[themeIdx],
           bio: bio.trim(),
         });
@@ -84,7 +96,11 @@ export default function CreateProfile() {
             {/* Avatar preview */}
             <View style={styles.previewWrap}>
               <View style={styles.previewGlow}>
-                <Avatar size={120} gradient={AVATAR_GRADIENTS[gradientIdx]} icon={AVATAR_ICONS[iconIdx]} ring />
+                {customAvatar ? (
+                  <ExpoImage source={{ uri: customAvatar }} style={{ width: 120, height: 120, borderRadius: 60 }} contentFit="cover" />
+                ) : (
+                  <Avatar size={120} gradient={AVATAR_GRADIENTS[gradientIdx]} icon={AVATAR_ICONS[iconIdx]} ring />
+                )}
               </View>
               <Text style={styles.previewName}>{username || "@yourAnonName"}</Text>
               <View style={styles.previewChip}>
@@ -113,15 +129,22 @@ export default function CreateProfile() {
             </GlassCard>
 
             {/* Section: Avatar */}
-            <Text style={styles.sectionLabel}>Pick your Mask</Text>
+            <View style={styles.avatarHeaderRow}>
+              <Text style={styles.sectionLabel}>Pick your Mask</Text>
+              <TouchableOpacity style={styles.uploadPhotoBtn} onPress={handlePickCustomAvatar} testID="upload-custom-avatar">
+                <Ionicons name="camera-outline" size={14} color={colors.brand} />
+                <Text style={styles.uploadPhotoText}>{customAvatar ? "Change Photo" : "Upload Photo"}</Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.grid}>
               {AVATAR_ICONS.map((icon, i) => {
                 const g = AVATAR_GRADIENTS[i % AVATAR_GRADIENTS.length];
-                const selected = i === iconIdx;
+                const selected = !customAvatar && i === iconIdx;
                 return (
                   <TouchableOpacity
                     key={icon + i}
                     onPress={() => {
+                      setCustomAvatar(null);
                       setIconIdx(i);
                       setGradientIdx(i % AVATAR_GRADIENTS.length);
                       Haptics.selectionAsync();
@@ -258,8 +281,30 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.brandBorder,
   },
-  previewChipText: { ...font.small, color: colors.brand, fontWeight: "700", marginLeft: 4 },
-  sectionLabel: { ...font.caption, fontWeight: "700", color: colors.onSurface, marginTop: spacing.xl, marginBottom: spacing.sm, letterSpacing: 0.5, textTransform: "uppercase", fontSize: 11 },
+  avatarHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  uploadPhotoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radii.pill,
+    backgroundColor: colors.brandSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.brandBorder,
+  },
+  uploadPhotoText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.brand,
+  },
+  sectionLabel: { ...font.caption, fontWeight: "700", color: colors.onSurface, letterSpacing: 0.5, textTransform: "uppercase", fontSize: 11 },
   optional: { color: colors.onSurfaceDim, fontWeight: "500", textTransform: "none" },
   inputCard: { padding: 0 },
   inputRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.lg, height: 54 },

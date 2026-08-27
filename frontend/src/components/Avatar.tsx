@@ -12,8 +12,15 @@ type Props = {
   ring?: boolean;
 };
 
+import { Image } from "expo-image";
+
 export default function Avatar({ size = 44, gradient, icon, ring = false }: Props) {
   const iconSize = Math.round(size * 0.5);
+  const innerSize = ring ? size - 4 : size;
+  const isCustomImage =
+    icon === "custom" ||
+    (gradient && gradient[0] && (gradient[0].startsWith("http") || gradient[0].startsWith("blob:") || gradient[0].startsWith("file:")));
+
   return (
     <View
       style={[
@@ -27,21 +34,29 @@ export default function Avatar({ size = 44, gradient, icon, ring = false }: Prop
         ring && shadow.glow,
       ]}
     >
-      <LinearGradient
-        colors={gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[
-          styles.avatar,
-          {
-            width: ring ? size - 4 : size,
-            height: ring ? size - 4 : size,
-            borderRadius: (ring ? size - 4 : size) / 2,
-          },
-        ]}
-      >
-        <Ionicons name={icon as any} size={iconSize} color="#FFFFFF" />
-      </LinearGradient>
+      {isCustomImage ? (
+        <Image
+          source={{ uri: gradient[0] }}
+          style={{ width: innerSize, height: innerSize, borderRadius: innerSize / 2 }}
+          contentFit="cover"
+        />
+      ) : (
+        <LinearGradient
+          colors={gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            styles.avatar,
+            {
+              width: innerSize,
+              height: innerSize,
+              borderRadius: innerSize / 2,
+            },
+          ]}
+        >
+          <Ionicons name={icon as any} size={iconSize} color="#FFFFFF" />
+        </LinearGradient>
+      )}
     </View>
   );
 }

@@ -82,17 +82,29 @@ export default function PostCard({ post }: Props) {
         <VoiceNotePlayer duration={post.voiceNote.duration} audioUrl={post.voiceNote.audioUrl} />
       ) : null}
 
-      {/* Image */}
-      {post.image ? (
-        <View style={styles.imageWrap}>
-          <Image
-            source={{ uri: post.image }}
-            style={styles.image}
-            contentFit="cover"
-            transition={300}
-          />
-        </View>
-      ) : null}
+      {/* Image(s) */}
+      {(() => {
+        const imgList = post.images && post.images.length > 0 ? post.images : (post.image ? [post.image] : []);
+        if (imgList.length === 0) return null;
+
+        if (imgList.length === 1) {
+          return (
+            <View style={styles.imageWrap}>
+              <Image source={{ uri: imgList[0] }} style={styles.image} contentFit="cover" transition={300} />
+            </View>
+          );
+        }
+
+        return (
+          <View style={styles.multiImageWrap}>
+            {imgList.slice(0, 3).map((uri, idx) => (
+              <View key={idx} style={[styles.multiImageCell, { flex: 1 }]}>
+                <Image source={{ uri }} style={styles.image} contentFit="cover" transition={300} />
+              </View>
+            ))}
+          </View>
+        );
+      })()}
 
       {/* Poll */}
       {post.poll ? (
@@ -213,6 +225,19 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.glassBorder,
+  },
+  multiImageWrap: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: spacing.md,
+    height: 180,
+    borderRadius: radii.lg,
+    overflow: "hidden",
+  },
+  multiImageCell: {
+    height: "100%",
+    borderRadius: radii.md,
+    overflow: "hidden",
   },
   image: { width: "100%", height: 220, backgroundColor: colors.surfaceTertiary },
   pollWrap: { marginTop: spacing.md },
