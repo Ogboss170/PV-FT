@@ -22,6 +22,7 @@ import {
   loginWithGoogle,
   getFriendlyError,
 } from "@/src/services/authService";
+import { trackLogin } from "@/src/services/analyticsService";
 
 export default function Login() {
   const router = useRouter();
@@ -48,6 +49,7 @@ export default function Login() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await loginWithEmail(identifier.trim(), password);
+      trackLogin("email");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/(tabs)");
     } catch (err: any) {
@@ -63,6 +65,7 @@ export default function Login() {
     setLoading(true);
     try {
       await loginWithGoogle();
+      trackLogin("google");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/(tabs)");
     } catch (err: any) {
@@ -73,6 +76,7 @@ export default function Login() {
       setLoading(false);
     }
   };
+
 
   return (
     <View style={styles.container} testID="login-screen">

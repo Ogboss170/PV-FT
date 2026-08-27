@@ -11,7 +11,9 @@ import InviteFriendsModal from "@/src/components/InviteFriendsModal";
 import { AVATAR_GRADIENTS, communities, posts } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { getUserProfile, UserProfile } from "@/src/services/authService";
+import { subscribeToUserProfile, type PublicUserProfile } from "@/src/services/userService";
 import { auth } from "@/src/firebase";
+import { trackProfileViewed } from "@/src/services/analyticsService";
 
 const TABS = ["Posts", "Saved", "Communities"] as const;
 
@@ -19,14 +21,25 @@ export default function Profile() {
   const router = useRouter();
   const [tab, setTab] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [liveProfile, setLiveProfile] = useState<PublicUserProfile | null>(null);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
   useEffect(() => {
+    trackProfileViewed(true);
+
     const uid = auth?.currentUser?.uid;
     if (!uid) return;
+
+    // One-time fetch for full profile (bio, theme, etc.)
     getUserProfile(uid).then((p) => {
       if (p) setUserProfile(p);
     });
+
+    // Live subscription for real-time social counts
+    const unsub = subscribeToUserProfile(uid, (p) => {
+      if (p) setLiveProfile(p);
+    });
+    return () => unsub();
   }, []);
 
   const handle =
@@ -95,12 +108,28 @@ export default function Profile() {
 
         {/* ── Stats row ── */}
         <View style={styles.statsRow}>
-          <StatCell value="128" label="Posts" />
+          <StatCell
+            value={liveProfile?.postsCount != null ? String(liveProfile.postsCount) : "0"}
+            label="Posts"
+          />
           <View style={styles.statDivider} />
-          <StatCell value="4.2K" label="Followers" />
+          <StatCell
+            value={
+              liveProfile?.followersCount != null
+                ? liveProfile.followersCount >= 1000
+                  ? `${(liveProfile.followersCount / 1000).toFixed(1)}K`
+                  : String(liveProfile.followersCount)
+                : "0"
+            }
+            label="Followers"
+          />
           <View style={styles.statDivider} />
-          <StatCell value="312" label="Following" />
+          <StatCell
+            value={liveProfile?.followingCount != null ? String(liveProfile.followingCount) : "0"}
+            label="Following"
+          />
         </View>
+
 
         {/* ── Action buttons ── */}
         <View style={styles.actionsRow}>

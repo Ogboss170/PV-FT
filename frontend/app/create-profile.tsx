@@ -21,6 +21,7 @@ import GlassCard from "@/src/components/GlassCard";
 import { AVATAR_GRADIENTS, AVATAR_ICONS, THEME_COLORS } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { createUserProfile, ensureAnonymousAuth } from "@/src/services/authService";
+import { uploadProfilePhoto } from "@/src/services/userService";
 import { auth } from "@/src/firebase";
 
 import { Image as ExpoImage } from "expo-image";
@@ -35,6 +36,7 @@ export default function CreateProfile() {
   const [themeIdx, setThemeIdx] = useState(0);
   const [customAvatar, setCustomAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handlePickCustomAvatar = async () => {
     const selected = await pickImagesFromGallery({ multiple: false, maxImages: 1 });
@@ -50,21 +52,40 @@ export default function CreateProfile() {
     try {
       const currentUser = auth?.currentUser || (await ensureAnonymousAuth());
       if (currentUser?.uid) {
+        let avatarUrl: string | undefined;
+
+        // Upload custom photo to Firebase Storage if selected
+        if (customAvatar) {
+          try {
+            avatarUrl = await uploadProfilePhoto(
+              currentUser.uid,
+              customAvatar,
+              (pct) => setUploadProgress(pct)
+            );
+          } catch (e) {
+            console.warn("Profile photo upload failed, using local URI:", e);
+            avatarUrl = undefined;
+          }
+        }
+
         await createUserProfile(currentUser.uid, {
           username: username.trim() || "ShadowFox_42",
           avatarIcon: customAvatar ? "custom" : AVATAR_ICONS[iconIdx],
           avatarGradient: customAvatar ? [customAvatar, customAvatar] : (AVATAR_GRADIENTS[gradientIdx] as any),
           themeColor: THEME_COLORS[themeIdx],
           bio: bio.trim(),
+          ...(avatarUrl ? { avatarUrl } : {}),
         });
       }
     } catch (e) {
       console.error("Failed to save profile:", e);
     } finally {
       setLoading(false);
+      setUploadProgress(0);
       router.replace("/(tabs)");
     }
   };
+
 
   return (
     <View style={styles.container} testID="create-profile-screen">

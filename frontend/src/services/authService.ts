@@ -25,10 +25,14 @@ export type UserProfile = {
   email?: string;
   avatarIcon: string;
   avatarGradient: [string, string];
+  avatarUrl?: string;
   themeColor: string;
   bio?: string;
   reputationScore: number;
   anonymityLevel: number;
+  followersCount: number;
+  followingCount: number;
+  postsCount: number;
   joinedAt?: any;
   isAnonymous?: boolean;
 };
@@ -90,7 +94,7 @@ export const registerWithEmail = async (
     console.warn("Could not update profile displayName:", e);
   }
 
-  // Create Firestore user document safely
+  // Create Firestore user document with zero-initialized social counters
   try {
     const profile: UserProfile = {
       uid: user.uid,
@@ -102,6 +106,9 @@ export const registerWithEmail = async (
       bio: "",
       reputationScore: 100,
       anonymityLevel: 100,
+      followersCount: 0,
+      followingCount: 0,
+      postsCount: 0,
       isAnonymous: false,
       joinedAt: serverTimestamp(),
     };
@@ -112,6 +119,7 @@ export const registerWithEmail = async (
 
   return user;
 };
+
 
 // ─── Email / Password Login ───────────────────────────────────────────────────
 
@@ -146,6 +154,9 @@ export const loginWithGoogle = async (): Promise<User> => {
         bio: "",
         reputationScore: 100,
         anonymityLevel: 100,
+        followersCount: 0,
+        followingCount: 0,
+        postsCount: 0,
         isAnonymous: false,
         joinedAt: serverTimestamp(),
       };

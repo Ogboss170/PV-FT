@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, font, radii, spacing } from "@/src/theme";
 import { registerWithEmail, loginWithGoogle, getFriendlyError } from "@/src/services/authService";
+import { trackAccountCreated } from "@/src/services/analyticsService";
 
 function passwordStrength(pwd: string): { score: number; label: string; color: string } {
   let score = 0;
@@ -73,6 +74,7 @@ export default function Register() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await registerWithEmail(email.trim(), password, username.trim());
+      trackAccountCreated("email");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/create-profile");
     } catch (err: any) {
@@ -88,6 +90,7 @@ export default function Register() {
     setLoading(true);
     try {
       await loginWithGoogle();
+      trackAccountCreated("google");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/create-profile");
     } catch (err: any) {
@@ -98,6 +101,7 @@ export default function Register() {
       setLoading(false);
     }
   };
+
 
   return (
     <View style={styles.container} testID="register-screen">

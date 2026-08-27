@@ -2,14 +2,23 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
-import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
 import PostCard from "@/src/components/PostCard";
 import { achievements, AVATAR_GRADIENTS, communities, posts } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { auth } from "@/src/firebase";
+import {
+  followUser,
+  unfollowUser,
+  isFollowing,
+  subscribeToUserProfile,
+  type PublicUserProfile,
+} from "@/src/services/userService";
+import { trackFollowUser, trackUnfollowUser, trackProfileViewed } from "@/src/services/analyticsService";
 
 const TABS = [
   { key: "posts", label: "Posts", count: 42 },
@@ -24,15 +33,73 @@ export default function PublicProfile() {
   const displayHandle = handle || "MidnightEcho";
 
   const [following, setFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const [tab, setTab] = useState(0);
+  const [targetProfile, setTargetProfile] = useState<PublicUserProfile | null>(null);
+
+  const currentUid = auth?.currentUser?.uid;
+  const currentUsername = auth?.currentUser?.displayName ?? "Anonymous";
+
+  // Track profile view on mount
+  useEffect(() => {
+    trackProfileViewed(false);
+  }, []);
+
+  // Live-subscribe to the target user's profile (by handle lookup — we use handle as uid for now)
+  // In production you'd do a Firestore query by username field first
+  useEffect(() => {
+    if (!handle) return;
+    // Subscribe using handle as uid (adjust if you have a username→uid lookup)
+    const unsub = subscribeToUserProfile(handle as string, (p) => {
+      if (p) setTargetProfile(p);
+    });
+    return () => unsub();
+  }, [handle]);
+
+  // Check initial follow state
+  useEffect(() => {
+    if (!currentUid || !handle) return;
+    isFollowing(currentUid, handle as string).then(setFollowing);
+  }, [currentUid, handle]);
+
+  const onFollow = useCallback(async () => {
+    if (!currentUid || !handle || followLoading) return;
+
+    // Prevent self-follow
+    if (currentUid === (handle as string)) {
+      Alert.alert("", "You cannot follow yourself.");
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setFollowLoading(true);
+
+    try {
+      if (following) {
+        const result = await unfollowUser(currentUid, handle as string);
+        if (result.success) {
+          setFollowing(false);
+          trackUnfollowUser();
+        }
+      } else {
+        const result = await followUser(currentUid, handle as string, currentUsername);
+        if (result.success) {
+          setFollowing(true);
+          trackFollowUser();
+        } else if (result.reason === "already_following") {
+          setFollowing(true); // Sync state
+        }
+      }
+    } catch (e) {
+      console.warn("Follow action failed:", e);
+    } finally {
+      setFollowLoading(false);
+    }
+  }, [currentUid, handle, following, followLoading, currentUsername]);
+
 
   const feed = posts.slice(0, 3);
   const commonCommunities = communities.filter((c) => c.joined).slice(0, 3);
-
-  const onFollow = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setFollowing((v) => !v);
-  };
 
   const onMessage = () => {
     router.push({ pathname: "/chat/[id]", params: { id: "new", name: displayHandle } } as any);
@@ -93,18 +160,14 @@ export default function PublicProfile() {
                 </View>
                 <View style={styles.metaRow}>
                   <Ionicons name="shield-checkmark" size={11} color={colors.brand} />
-                  <Text style={styles.metaText}>Trusted Anon</Text>
-                  <View style={styles.metaDot} />
-                  <Text style={styles.metaText}>Silver Voice</Text>
+                  <Text style={styles.metaText}>Anonymous Voice</Text>
                 </View>
               </View>
             </View>
 
             <Text style={styles.bio}>
-              Softer conversations, kinder internet. Occasional midnight essays. Always anonymous, always sincere.
+              {targetProfile?.bio || "Softer conversations, kinder internet. Always anonymous, always sincere."}
             </Text>
-
-
 
             {/* Mutual connections */}
             <View style={styles.mutualRow}>
@@ -119,32 +182,33 @@ export default function PublicProfile() {
                 ))}
               </View>
               <Text style={styles.mutualText}>
-                <Text style={{ fontWeight: "700", color: colors.onSurface }}>ShadowFox_42</Text> and 12 others follow
+                <Text style={{ fontWeight: "700", color: colors.onSurface }}>Anonymous</Text> and others follow
               </Text>
             </View>
           </View>
 
-          {/* Stats */}
+          {/* Stats — real Firestore counts */}
           <View style={styles.statsRow}>
             <View style={styles.statCol}>
-              <Text style={styles.statNum}>42</Text>
+              <Text style={styles.statNum}>{targetProfile?.postsCount ?? 0}</Text>
               <Text style={styles.statLabel}>Echoes</Text>
             </View>
             <View style={styles.statDivider} />
             <TouchableOpacity style={styles.statCol} testID="public-followers">
-              <Text style={styles.statNum}>18.4K</Text>
+              <Text style={styles.statNum}>
+                {targetProfile?.followersCount != null
+                  ? targetProfile.followersCount >= 1000
+                    ? `${(targetProfile.followersCount / 1000).toFixed(1)}K`
+                    : String(targetProfile.followersCount)
+                  : "0"}
+              </Text>
               <Text style={styles.statLabel}>Followers</Text>
             </TouchableOpacity>
             <View style={styles.statDivider} />
             <TouchableOpacity style={styles.statCol} testID="public-following">
-              <Text style={styles.statNum}>512</Text>
+              <Text style={styles.statNum}>{targetProfile?.followingCount ?? 0}</Text>
               <Text style={styles.statLabel}>Following</Text>
             </TouchableOpacity>
-            <View style={styles.statDivider} />
-            <View style={styles.statCol}>
-              <Text style={[styles.statNum, { color: colors.brand }]}>872</Text>
-              <Text style={styles.statLabel}>Rep</Text>
-            </View>
           </View>
 
           {/* Action buttons */}
@@ -152,7 +216,8 @@ export default function PublicProfile() {
             <TouchableOpacity
               onPress={onFollow}
               activeOpacity={0.85}
-              style={[styles.primaryBtn, following && styles.followingBtn]}
+              disabled={followLoading}
+              style={[styles.primaryBtn, following && styles.followingBtn, followLoading && { opacity: 0.6 }]}
               testID="public-follow-btn"
             >
               {!following && (
@@ -169,7 +234,7 @@ export default function PublicProfile() {
                 color={following ? colors.brand : "#FFFFFF"}
               />
               <Text style={[styles.primaryText, following && { color: colors.brand }]}>
-                {following ? "Following" : "Follow"}
+                {followLoading ? "..." : following ? "Following" : "Follow"}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onMessage} style={styles.secondaryBtn} activeOpacity={0.85} testID="public-message-btn">
@@ -180,6 +245,7 @@ export default function PublicProfile() {
               <Ionicons name="mic" size={18} color={colors.brand} />
             </TouchableOpacity>
           </View>
+
 
           {/* Whisper CTA banner */}
           <TouchableOpacity
