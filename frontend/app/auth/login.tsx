@@ -32,10 +32,17 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = identifier.trim().length > 0 && password.length >= 6;
-
   const onLogin = async () => {
-    if (!canSubmit || loading) return;
+    if (loading) return;
+    if (!identifier.trim()) {
+      setError("Please enter your email address.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
     setError(null);
     setLoading(true);
     try {
@@ -177,8 +184,8 @@ export default function Login() {
               <TouchableOpacity
                 onPress={onLogin}
                 activeOpacity={0.85}
-                disabled={!canSubmit || loading}
-                style={[styles.primaryBtn, (!canSubmit || loading) && { opacity: 0.6 }]}
+                disabled={loading}
+                style={[styles.primaryBtn, loading && { opacity: 0.6 }]}
                 testID="login-submit-btn"
               >
                 <LinearGradient

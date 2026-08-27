@@ -153,7 +153,12 @@ export default function Profile() {
 
           {/* Action buttons */}
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.85} testID="profile-edit-btn">
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              activeOpacity={0.85}
+              testID="profile-edit-btn"
+              onPress={() => router.push("/create-profile")}
+            >
               <LinearGradient
                 colors={["#06B6D4", "#0284C7"]}
                 start={{ x: 0, y: 0 }}

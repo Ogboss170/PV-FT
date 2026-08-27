@@ -31,22 +31,14 @@ export default function Settings() {
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [bugModalVisible, setBugModalVisible] = useState(false);
 
-  const handleLogout = () => {
-    Alert.alert(
-      "Log Out",
-      "Are you sure you want to log out of Private Voices?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log Out",
-          style: "destructive",
-          onPress: async () => {
-            await logout();
-            router.replace("/auth/login");
-          },
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.warn("Logout warning:", err);
+    } finally {
+      router.replace("/auth/login");
+    }
   };
 
   const sections: { title: string; rows: (Row & { onToggle?: (v: boolean) => void; toggleValue?: boolean })[] }[] = [

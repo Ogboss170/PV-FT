@@ -45,15 +45,29 @@ export default function Register() {
   const strength = useMemo(() => passwordStrength(password), [password]);
   const passwordsMatch = password.length > 0 && password === confirm;
 
-  const canSubmit =
-    username.length >= 3 &&
-    /^\S+@\S+\.\S+$/.test(email) &&
-    password.length >= 8 &&
-    passwordsMatch &&
-    agreed;
-
   const onSubmit = async () => {
-    if (!canSubmit || loading) return;
+    if (loading) return;
+    if (username.trim().length < 3) {
+      setError("Anonymous handle must be at least 3 characters.");
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (!agreed) {
+      setError("Please agree to the Community Guidelines to continue.");
+      return;
+    }
+
     setError(null);
     setLoading(true);
     try {
@@ -297,8 +311,8 @@ export default function Register() {
               <TouchableOpacity
                 onPress={onSubmit}
                 activeOpacity={0.85}
-                disabled={!canSubmit || loading}
-                style={[styles.primaryBtn, (!canSubmit || loading) && { opacity: 0.5, shadowOpacity: 0 }]}
+                disabled={loading}
+                style={[styles.primaryBtn, loading && { opacity: 0.5, shadowOpacity: 0 }]}
                 testID="register-submit-btn"
               >
                 <LinearGradient
