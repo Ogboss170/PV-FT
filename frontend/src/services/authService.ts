@@ -161,7 +161,7 @@ export const loginWithGoogle = async (): Promise<User> => {
 // ─── Anonymous Sign-In ────────────────────────────────────────────────────────
 
 export const ensureAnonymousAuth = async (): Promise<User> => {
-  if (auth.currentUser) return auth.currentUser;
+  if (auth?.currentUser) return auth.currentUser;
   const credential = await signInAnonymously(auth);
   return credential.user;
 };

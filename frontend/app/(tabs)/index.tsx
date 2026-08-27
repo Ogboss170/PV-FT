@@ -23,7 +23,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (!auth.currentUser) {
+    if (!auth?.currentUser) {
       ensureAnonymousAuth().catch(console.warn);
     }
 

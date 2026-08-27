@@ -36,7 +36,7 @@ export default function CreateProfile() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(true);
     try {
-      const currentUser = auth.currentUser || (await ensureAnonymousAuth());
+      const currentUser = auth?.currentUser || (await ensureAnonymousAuth());
       if (currentUser?.uid) {
         await createUserProfile(currentUser.uid, {
           username: username.trim() || "ShadowFox_42",

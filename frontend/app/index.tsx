@@ -86,7 +86,7 @@ export default function Splash() {
     dotAnim(dot3, 400);
 
     const t = setTimeout(() => {
-      if (auth.currentUser) {
+      if (auth?.currentUser) {
         router.replace("/(tabs)");
       } else {
         router.replace("/auth/login");
