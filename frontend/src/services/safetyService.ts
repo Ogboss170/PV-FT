@@ -138,13 +138,30 @@ export const submitUserAppeal = async (data: {
   reason: string;
   contactEmail?: string;
 }) => {
-  const currentUserId = auth.currentUser?.uid || "anon-user";
+  const currentUserId = auth?.currentUser?.uid || "anon-user";
   const appealsRef = collection(db, "user_appeals");
 
   await addDoc(appealsRef, {
     userId: currentUserId,
     ...data,
     status: "pending",
+    createdAt: serverTimestamp(),
+  });
+};
+
+export const submitBugReport = async (data: {
+  title: string;
+  description: string;
+  category?: string;
+  platform?: string;
+}) => {
+  const currentUserId = auth?.currentUser?.uid || "anon-user";
+  const bugsRef = collection(db, "bug_reports");
+
+  await addDoc(bugsRef, {
+    userId: currentUserId,
+    ...data,
+    status: "OPEN",
     createdAt: serverTimestamp(),
   });
 };

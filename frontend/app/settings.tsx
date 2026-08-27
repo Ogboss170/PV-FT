@@ -9,6 +9,7 @@ import Avatar from "@/src/components/Avatar";
 import { AVATAR_GRADIENTS } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import InviteFriendsModal from "@/src/components/InviteFriendsModal";
+import ReportBugModal from "@/src/components/ReportBugModal";
 import { logout } from "@/src/services/authService";
 
 type Row = {
@@ -28,6 +29,7 @@ export default function Settings() {
   const [readReceipts, setReadReceipts] = useState(false);
   const [darkMode] = useState(true);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [bugModalVisible, setBugModalVisible] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -68,6 +70,7 @@ export default function Settings() {
     {
       title: "Support",
       rows: [
+        { icon: "bug-outline", label: "Report a bug", hint: "Found an issue? Let us know", chevron: true, onPress: () => setBugModalVisible(true) },
         { icon: "help-circle-outline", label: "Report a problem", chevron: true },
         { icon: "book-outline", label: "Community guidelines", chevron: true },
         { icon: "information-circle-outline", label: "About Private Voices", chevron: true },
@@ -161,6 +164,11 @@ export default function Settings() {
       <InviteFriendsModal
         visible={inviteModalVisible}
         onClose={() => setInviteModalVisible(false)}
+      />
+
+      <ReportBugModal
+        visible={bugModalVisible}
+        onClose={() => setBugModalVisible(false)}
       />
     </View>
   );
