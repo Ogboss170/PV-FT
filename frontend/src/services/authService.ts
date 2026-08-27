@@ -15,6 +15,8 @@ import { useEffect, useState } from "react";
 
 import { auth, db } from "../firebase";
 
+export { auth, db };
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type UserProfile = {

@@ -9,7 +9,8 @@ import PostCard from "@/src/components/PostCard";
 import { Post, posts as fallbackPosts } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { subscribeToPosts } from "@/src/services/postService";
-import { ensureAnonymousAuth, auth } from "@/src/services/authService";
+import { ensureAnonymousAuth } from "@/src/services/authService";
+import { auth } from "@/src/firebase";
 
 const FILTERS = ["For You", "Following", "Trending", "Communities", "Recent"];
 
