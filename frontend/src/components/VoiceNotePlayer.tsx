@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   playBtnInner: {
     width: 38,
     height: 38,
-    justify.content: "center",
+    justifyContent: "center",
     alignItems: "center",
   },
   waveformWrap: {

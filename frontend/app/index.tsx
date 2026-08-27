@@ -13,6 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { auth } from "@/src/firebase";
 import { colors, font, spacing } from "@/src/theme";
 
 // Voice wave bars — animated heights
@@ -85,7 +86,11 @@ export default function Splash() {
     dotAnim(dot3, 400);
 
     const t = setTimeout(() => {
-      router.replace("/auth/login");
+      if (auth.currentUser) {
+        router.replace("/(tabs)");
+      } else {
+        router.replace("/auth/login");
+      }
     }, 2500);
     return () => clearTimeout(t);
   }, [router, scale, opacity, glow, textOpacity, dot1, dot2, dot3]);

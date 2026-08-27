@@ -8,6 +8,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { colors, font, radii, shadow, spacing } from "../theme";
 import Avatar from "./Avatar";
+import VoiceNotePlayer from "./VoiceNotePlayer";
 import { Post } from "../mockData";
 import { toggleLikePost, voteOnPollInFirestore } from "../services/postService";
 import { auth } from "../firebase";
