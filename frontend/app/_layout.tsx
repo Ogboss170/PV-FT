@@ -98,8 +98,6 @@ export default function RootLayout() {
 
     if (!user && !isPublic) {
       router.replace("/auth/login");
-    } else if (user && currentSegment === "auth") {
-      router.replace("/(tabs)");
     }
   }, [user, authLoading, segments]);
 

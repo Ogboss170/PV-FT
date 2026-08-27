@@ -60,10 +60,7 @@ export default function TabsLayout() {
           paddingHorizontal: 8,
         },
         tabBarBackground: () => (
-          <View style={StyleSheet.absoluteFill}>
-            <BlurView intensity={60} tint="dark" style={[StyleSheet.absoluteFill, { borderRadius: radii.pill, overflow: "hidden" }]} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(15,23,42,0.75)", borderRadius: radii.pill }]} />
-          </View>
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(15,23,42,0.92)", borderRadius: radii.pill, borderWidth: 1, borderColor: colors.glassBorder }]} />
         ),
       }}
     >

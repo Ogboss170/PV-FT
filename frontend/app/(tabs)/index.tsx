@@ -22,7 +22,9 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    ensureAnonymousAuth().catch(console.warn);
+    if (!auth.currentUser) {
+      ensureAnonymousAuth().catch(console.warn);
+    }
 
     const unsubscribe = subscribeToPosts((livePosts) => {
       if (livePosts.length > 0) {
