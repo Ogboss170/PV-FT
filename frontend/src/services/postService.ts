@@ -150,3 +150,33 @@ export const addCommentToFirestore = async (
     commentsCount: increment(1),
   });
 };
+
+export const toggleSavePost = async (postId: string, userId: string, isSaved: boolean) => {
+  const postRef = doc(db, "posts", postId);
+  if (isSaved) {
+    await updateDoc(postRef, {
+      savedBy: arrayRemove(userId),
+    });
+  } else {
+    await updateDoc(postRef, {
+      savedBy: arrayUnion(userId),
+    });
+  }
+};
+
+export const repostPostInFirestore = async (postId: string) => {
+  const postRef = doc(db, "posts", postId);
+  await updateDoc(postRef, {
+    reposts: increment(1),
+  });
+};
+
+export const reportPostInFirestore = async (postId: string, userId: string, reason: string) => {
+  const reportsRef = collection(db, "reports");
+  await addDoc(reportsRef, {
+    postId,
+    userId,
+    reason,
+    createdAt: serverTimestamp(),
+  });
+};

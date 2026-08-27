@@ -116,9 +116,11 @@ export default function PostDetail() {
     setReply("");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+    const handle = auth?.currentUser?.displayName || auth?.currentUser?.email?.split("@")[0] || "Anonymous";
+
     if (id) {
       await addCommentToFirestore(id as string, {
-        username: "ShadowFox_42",
+        username: handle,
         avatarColor: AVATAR_GRADIENTS[0] as any,
         avatarIcon: "flash",
         text: commentText,
@@ -129,7 +131,7 @@ export default function PostDetail() {
         ...prev,
         {
           id: `c${Date.now()}`,
-          username: "ShadowFox_42",
+          username: handle,
           avatarColor: AVATAR_GRADIENTS[0],
           avatarIcon: "flash",
           time: "now",

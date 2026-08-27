@@ -4,13 +4,19 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { colors, font, radii, shadow, spacing } from "../theme";
 import Avatar from "./Avatar";
 import VoiceNotePlayer from "./VoiceNotePlayer";
 import { Post } from "../mockData";
-import { toggleLikePost, voteOnPollInFirestore } from "../services/postService";
+import {
+  toggleLikePost,
+  toggleSavePost,
+  repostPostInFirestore,
+  reportPostInFirestore,
+  voteOnPollInFirestore,
+} from "../services/postService";
 import { auth } from "../firebase";
 
 type Props = { post: Post };
@@ -20,20 +26,74 @@ export default function PostCard({ post }: Props) {
   const [liked, setLiked] = useState(!!post.liked);
   const [saved, setSaved] = useState(!!post.saved);
   const [likes, setLikes] = useState(post.likes);
+  const [reposts, setReposts] = useState(post.reposts || 0);
+  const [reposted, setReposted] = useState(false);
   const [pollVote, setPollVote] = useState<number | null>(null);
+
+  const userId = auth?.currentUser?.uid || "anon-user";
 
   const onLike = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const newLikedState = !liked;
     setLiked(newLikedState);
     setLikes((c) => (liked ? c - 1 : c + 1));
-
-    const userId = auth.currentUser?.uid || "anon-user";
     toggleLikePost(post.id, userId, liked).catch(console.error);
   };
   const onSave = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSaved((v) => !v);
+    const newSavedState = !saved;
+    setSaved(newSavedState);
+    toggleSavePost(post.id, userId, saved).catch(console.error);
+  };
+
+  const onRepost = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!reposted) {
+      setReposted(true);
+      setReposts((r) => r + 1);
+      repostPostInFirestore(post.id).catch(console.error);
+    }
+  };
+
+  const onComment = () => {
+    router.push({ pathname: "/post/[id]", params: { id: post.id } } as any);
+  };
+
+  const onShare = async () => {
+    const postUrl = `https://privatevoices.vercel.app/post/${post.id}`;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title: "Private Voices Echo",
+          text: post.text,
+          url: postUrl,
+        });
+        return;
+      } else if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(postUrl);
+        Alert.alert("Link Copied", "Echo link copied to clipboard!");
+        return;
+      }
+    } catch (_) {}
+  };
+
+  const onReport = () => {
+    Alert.alert(
+      "Report Post",
+      "Are you sure you want to report this post for violating community guidelines?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Report",
+          style: "destructive",
+          onPress: async () => {
+            await reportPostInFirestore(post.id, userId, "User reported post");
+            Alert.alert("Report Received", "Thank you. Our moderation team has been notified.");
+          },
+        },
+      ]
+    );
   };
 
   const handlePollVote = (idx: number) => {
@@ -69,7 +129,7 @@ export default function PostCard({ post }: Props) {
             <Text style={styles.communityText}>{post.community}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.moreBtn} testID={`post-more-${post.id}`}>
+        <TouchableOpacity style={styles.moreBtn} onPress={onReport} testID={`post-more-${post.id}`}>
           <Ionicons name="ellipsis-horizontal" size={18} color={colors.onSurfaceMuted} />
         </TouchableOpacity>
       </View>
@@ -131,11 +191,9 @@ export default function PostCard({ post }: Props) {
                   ]}
                 />
                 <View style={styles.pollRowInner}>
-                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-                    {isPicked && (
-                      <Ionicons name="checkmark-circle" size={16} color={colors.brand} style={{ marginRight: 6 }} />
-                    )}
-                    <Text style={[styles.pollLabel, isPicked && { color: colors.brand, fontWeight: "700" }]} numberOfLines={1}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {isPicked && <Ionicons name="checkmark-circle" size={16} color={colors.brand} style={{ marginRight: 6 }} />}
+                    <Text style={[styles.pollLabel, isPicked && { color: colors.brand, fontWeight: "700" }]}>
                       {opt.label}
                     </Text>
                   </View>
@@ -158,18 +216,23 @@ export default function PostCard({ post }: Props) {
           />
           <Text style={[styles.actionText, liked && { color: "#EC4899" }]}>{likes.toLocaleString()}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} testID={`post-comment-${post.id}`}>
+        
+        <TouchableOpacity style={styles.actionBtn} onPress={onComment} testID={`post-comment-${post.id}`}>
           <Ionicons name="chatbubble-outline" size={20} color={colors.onSurfaceMuted} />
           <Text style={styles.actionText}>{post.comments}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} testID={`post-repost-${post.id}`}>
-          <Ionicons name="repeat-outline" size={22} color={colors.onSurfaceMuted} />
-          <Text style={styles.actionText}>{post.reposts}</Text>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={onRepost} testID={`post-repost-${post.id}`}>
+          <Ionicons name="repeat-outline" size={22} color={reposted ? colors.success : colors.onSurfaceMuted} />
+          <Text style={[styles.actionText, reposted && { color: colors.success }]}>{reposts.toLocaleString()}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} testID={`post-share-${post.id}`}>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={onShare} testID={`post-share-${post.id}`}>
           <Ionicons name="paper-plane-outline" size={19} color={colors.onSurfaceMuted} />
         </TouchableOpacity>
+        
         <View style={{ flex: 1 }} />
+        
         <TouchableOpacity onPress={onSave} testID={`post-save-${post.id}`}>
           <Ionicons
             name={saved ? "bookmark" : "bookmark-outline"}
