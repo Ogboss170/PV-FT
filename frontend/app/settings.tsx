@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -10,7 +10,8 @@ import { AVATAR_GRADIENTS } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import InviteFriendsModal from "@/src/components/InviteFriendsModal";
 import ReportBugModal from "@/src/components/ReportBugModal";
-import { logout } from "@/src/services/authService";
+import { logout, getUserProfile, UserProfile } from "@/src/services/authService";
+import { auth } from "@/src/firebase";
 
 type Row = {
   icon: string;
@@ -27,9 +28,24 @@ export default function Settings() {
   const router = useRouter();
   const [notif, setNotif] = useState(true);
   const [readReceipts, setReadReceipts] = useState(false);
-  const [darkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(true);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [bugModalVisible, setBugModalVisible] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const uid = auth?.currentUser?.uid;
+    if (!uid) return;
+    getUserProfile(uid).then((p) => {
+      if (p) setUserProfile(p);
+    });
+  }, []);
+
+  const handle =
+    userProfile?.displayName ??
+    auth?.currentUser?.displayName ??
+    auth?.currentUser?.email?.split("@")[0] ??
+    "Anonymous";
 
   const handleLogout = async () => {
     try {
@@ -45,27 +61,105 @@ export default function Settings() {
     {
       title: "Privacy",
       rows: [
-        { icon: "lock-closed-outline", label: "Privacy", hint: "Control who sees your echoes", chevron: true },
-        { icon: "person-remove-outline", label: "Blocked users", hint: "3 accounts blocked", chevron: true },
-        { icon: "eye-off-outline", label: "Read receipts", toggle: true, toggleValue: readReceipts, onToggle: setReadReceipts },
+        {
+          icon: "lock-closed-outline",
+          label: "Privacy",
+          hint: "Control who sees your echoes",
+          chevron: true,
+          onPress: () =>
+            Alert.alert(
+              "Privacy Controls",
+              "Your identity is 100% anonymous. Private Voices does not link your posts, echoes, or whispers to your identity."
+            ),
+        },
+        {
+          icon: "person-remove-outline",
+          label: "Blocked users",
+          hint: "0 accounts blocked",
+          chevron: true,
+          onPress: () => Alert.alert("Blocked Users", "You currently have no blocked accounts."),
+        },
+        {
+          icon: "eye-off-outline",
+          label: "Read receipts",
+          toggle: true,
+          toggleValue: readReceipts,
+          onToggle: setReadReceipts,
+        },
       ],
     },
     {
       title: "Preferences & Growth",
       rows: [
-        { icon: "gift-outline", label: "Invite Friends", hint: "Get your anonymous link", chevron: true, onPress: () => setInviteModalVisible(true) },
-        { icon: "notifications-outline", label: "Notifications", toggle: true, toggleValue: notif, onToggle: setNotif },
-        { icon: "moon-outline", label: "Dark mode", hint: "Always on", toggle: true, toggleValue: darkMode },
-        { icon: "language-outline", label: "Language", hint: "English", chevron: true },
+        {
+          icon: "gift-outline",
+          label: "Invite Friends",
+          hint: "Get your anonymous link",
+          chevron: true,
+          onPress: () => setInviteModalVisible(true),
+        },
+        {
+          icon: "notifications-outline",
+          label: "Notifications",
+          toggle: true,
+          toggleValue: notif,
+          onToggle: setNotif,
+        },
+        {
+          icon: "moon-outline",
+          label: "Dark mode",
+          hint: "Always on",
+          toggle: true,
+          toggleValue: darkMode,
+          onToggle: setDarkMode,
+        },
+        {
+          icon: "language-outline",
+          label: "Language",
+          hint: "English",
+          chevron: true,
+          onPress: () =>
+            Alert.alert("Language", "Private Voices is currently available in English. More languages coming soon!"),
+        },
       ],
     },
     {
       title: "Support",
       rows: [
-        { icon: "bug-outline", label: "Report a bug", hint: "Found an issue? Let us know", chevron: true, onPress: () => setBugModalVisible(true) },
-        { icon: "help-circle-outline", label: "Report a problem", chevron: true },
-        { icon: "book-outline", label: "Community guidelines", chevron: true },
-        { icon: "information-circle-outline", label: "About Private Voices", chevron: true },
+        {
+          icon: "bug-outline",
+          label: "Report a bug",
+          hint: "Found an issue? Let us know",
+          chevron: true,
+          onPress: () => setBugModalVisible(true),
+        },
+        {
+          icon: "help-circle-outline",
+          label: "Report a problem",
+          chevron: true,
+          onPress: () =>
+            Alert.alert("Report a Problem", "Need help? Email our support team directly at support@privatevoices.app"),
+        },
+        {
+          icon: "book-outline",
+          label: "Community guidelines",
+          chevron: true,
+          onPress: () =>
+            Alert.alert(
+              "Community Guidelines",
+              "1. Be kind and empathetic.\n2. Respect anonymity.\n3. No harassment, hate speech, or doxxing.\n4. Support others safely."
+            ),
+        },
+        {
+          icon: "information-circle-outline",
+          label: "About Private Voices",
+          chevron: true,
+          onPress: () =>
+            Alert.alert(
+              "About Private Voices",
+              "Private Voices v1.0.0\n\nA safe, anonymous social network built for honest conversations, whispers, and supportive communities."
+            ),
+        },
       ],
     },
     {
@@ -75,7 +169,6 @@ export default function Settings() {
       ],
     },
   ];
-
 
   return (
     <View style={styles.container} testID="settings-screen">
@@ -99,13 +192,17 @@ export default function Settings() {
         <View style={styles.profileCard}>
           <Avatar size={56} gradient={AVATAR_GRADIENTS[0]} icon="flash" ring />
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.profileName}>@ShadowFox_42</Text>
+            <Text style={styles.profileName}>@{handle}</Text>
             <View style={styles.privacyRow}>
               <Ionicons name="shield-checkmark" size={12} color={colors.success} />
               <Text style={styles.privacyText}>Identity protected</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.editBtn} onPress={() => router.push("/(tabs)/profile")} testID="settings-edit-profile">
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={() => router.push("/create-profile")}
+            testID="settings-edit-profile"
+          >
             <Text style={styles.editBtnText}>Edit</Text>
           </TouchableOpacity>
         </View>
