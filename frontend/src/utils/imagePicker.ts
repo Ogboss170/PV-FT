@@ -1,5 +1,4 @@
 import { Platform } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 
 export async function pickImagesFromGallery(options?: {
   multiple?: boolean;
@@ -32,6 +31,7 @@ export async function pickImagesFromGallery(options?: {
 
   // Native / Expo ImagePicker
   try {
+    const ImagePicker = require("expo-image-picker");
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       alert("Permission to access gallery is required!");
@@ -49,9 +49,10 @@ export async function pickImagesFromGallery(options?: {
       return [];
     }
 
-    return result.assets.map((asset) => asset.uri);
+    return result.assets.map((asset: any) => asset.uri);
   } catch (err) {
     console.warn("Image picker error:", err);
     return [];
   }
 }
+
