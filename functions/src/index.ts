@@ -25,6 +25,14 @@ export {
   changeUsername,
 } from "./username";
 
+// Re-export community functions (defined in community.ts)
+export {
+  createCommunity,
+  joinCommunity,
+  leaveCommunity,
+} from "./community";
+
+
 // ─── onUserCreate ─────────────────────────────────────────────────────────────
 // Triggered every time a new Firebase Auth user is created.
 // Ensures the Firestore user document exists with zero counters.

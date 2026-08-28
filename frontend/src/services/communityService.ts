@@ -1,7 +1,8 @@
-import { db } from "../firebase";
+﻿import { db, functions } from "../firebase";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   updateDoc,
@@ -10,9 +11,65 @@ import {
   arrayRemove,
   onSnapshot,
   query,
-  where
+  where,
+  orderBy,
+  limit,
+  serverTimestamp,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { Community } from "../mockData";
+
+export interface CommunityFull {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  category: string;
+  visibility: "public" | "private";
+  requireApproval: boolean;
+  allowAnonymousPosts: boolean;
+  avatarUrl?: string;
+  coverUrl?: string;
+  emoji?: string;
+  ownerId: string;
+  memberCount: number;
+  postCount: number;
+  rules: string[];
+  joined?: boolean;
+  createdAt?: any;
+}
+
+// ─── Callables ───
+const _createCommunity = httpsCallable<any, { success: boolean; communityId: string }>(functions, "createCommunity");
+const _joinCommunity = httpsCallable<{ communityId: string }, { success: boolean; status: string }>(functions, "joinCommunity");
+const _leaveCommunity = httpsCallable<{ communityId: string }, { success: boolean; status: string }>(functions, "leaveCommunity");
+
+// ─── Service Methods ───
+export const createCommunityInFirestore = async (data: {
+  name: string;
+  slug: string;
+  description: string;
+  category: string;
+  visibility: "public" | "private";
+  requireApproval: boolean;
+  rules: string[];
+  allowAnonymousPosts: boolean;
+  avatarUrl?: string;
+  coverUrl?: string;
+}) => {
+  const result = await _createCommunity(data);
+  return result.data;
+};
+
+export const joinCommunityCallable = async (communityId: string) => {
+  const result = await _joinCommunity({ communityId });
+  return result.data;
+};
+
+export const leaveCommunityCallable = async (communityId: string) => {
+  const result = await _leaveCommunity({ communityId });
+  return result.data;
+};
 
 export const subscribeToCommunities = (callback: (communities: Community[]) => void) => {
   const commRef = collection(db, "communities");
@@ -24,10 +81,10 @@ export const subscribeToCommunities = (callback: (communities: Community[]) => v
         return {
           id: docSnap.id,
           name: data.name,
-          emoji: data.emoji,
+          emoji: data.emoji || "💬",
           description: data.description,
           members: `${data.memberCount || 0} members`,
-          cover: data.cover,
+          cover: data.coverUrl || data.cover || "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80",
           gradient: data.gradient || ["#06B6D4", "#0284C7"],
           joined: false,
         };
@@ -41,27 +98,54 @@ export const subscribeToCommunities = (callback: (communities: Community[]) => v
   );
 };
 
+export const getCommunityDetails = async (idOrSlug: string): Promise<CommunityFull | null> => {
+  const ref = doc(db, "communities", idOrSlug);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const data = snap.data();
+    return {
+      id: snap.id,
+      name: data.name,
+      slug: data.slug || snap.id,
+      description: data.description,
+      category: data.category || "General",
+      visibility: data.visibility || "public",
+      requireApproval: !!data.requireApproval,
+      allowAnonymousPosts: data.allowAnonymousPosts !== false,
+      avatarUrl: data.avatarUrl,
+      coverUrl: data.coverUrl || data.cover,
+      emoji: data.emoji || "💬",
+      ownerId: data.ownerId,
+      memberCount: data.memberCount || 0,
+      postCount: data.postCount || 0,
+      rules: data.rules || [
+        "Be kind and respectful to all members.",
+        "No harassment, hate speech, or targeted hate.",
+        "Respect poster anonymity at all times.",
+        "Keep discussions relevant to the community category."
+      ],
+      createdAt: data.createdAt,
+    };
+  }
+  return null;
+};
+
 export const toggleJoinCommunityInFirestore = async (
   communityId: string,
   userId: string,
   currentlyJoined: boolean
 ) => {
-  const userRef = doc(db, "users", userId);
-  const commRef = doc(db, "communities", communityId);
-
   if (currentlyJoined) {
-    await updateDoc(userRef, {
-      joinedCommunities: arrayRemove(communityId),
-    });
-    await updateDoc(commRef, {
-      memberCount: increment(-1),
+    await leaveCommunityCallable(communityId).catch(async () => {
+      // Fallback client update
+      await updateDoc(doc(db, "users", userId), { joinedCommunities: arrayRemove(communityId) });
+      await updateDoc(doc(db, "communities", communityId), { memberCount: increment(-1) });
     });
   } else {
-    await updateDoc(userRef, {
-      joinedCommunities: arrayUnion(communityId),
-    });
-    await updateDoc(commRef, {
-      memberCount: increment(1),
+    await joinCommunityCallable(communityId).catch(async () => {
+      // Fallback client update
+      await updateDoc(doc(db, "users", userId), { joinedCommunities: arrayUnion(communityId) });
+      await updateDoc(doc(db, "communities", communityId), { memberCount: increment(1) });
     });
   }
 };

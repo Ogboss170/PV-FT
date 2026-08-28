@@ -10,10 +10,18 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import Avatar from "@/src/components/Avatar";
 import PostCard from "@/src/components/PostCard";
 import InviteFriendsModal from "@/src/components/InviteFriendsModal";
-import { AVATAR_GRADIENTS, communities, posts } from "@/src/mockData";
+import { AVATAR_GRADIENTS, communities as fallbackCommunities, posts } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import {
+  getCommunityDetails,
+  joinCommunityCallable,
+  leaveCommunityCallable,
+  CommunityFull,
+} from "@/src/services/communityService";
+import { auth } from "@/src/firebase";
 
 const TABS = ["Feed", "Trending", "About"];
+
 
 const RULES = [
   { id: "r1", title: "Kindness first", body: "Disagreement is welcome. Cruelty is not." },
@@ -41,21 +49,55 @@ export default function CommunityDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const community = communities.find((c) => c.id === id) ?? communities[0];
+  const fallback = fallbackCommunities.find((c) => c.id === id) ?? fallbackCommunities[0];
 
+  const [communityData, setCommunityData] = React.useState<CommunityFull | null>(null);
   const [tab, setTab] = useState(0);
-  const [joined, setJoined] = useState(!!community.joined);
+  const [joined, setJoined] = useState(!!fallback.joined);
+  const [joining, setJoining] = useState(false);
   const [notify, setNotify] = useState(false);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
-  const feed = posts.filter((p) => p.community === community.name).length > 0
-    ? posts.filter((p) => p.community === community.name)
+  React.useEffect(() => {
+    if (!id) return;
+    getCommunityDetails(id).then((data) => {
+      if (data) setCommunityData(data);
+    });
+  }, [id]);
+
+  const name = communityData?.name || fallback.name;
+  const description = communityData?.description || fallback.description;
+  const emoji = communityData?.emoji || fallback.emoji;
+  const cover = communityData?.coverUrl || fallback.cover;
+  const memberCount = communityData?.memberCount ?? 12400;
+  const rules = communityData?.rules || RULES.map((r) => r.body);
+
+  const feed = posts.filter((p) => p.community === name).length > 0
+    ? posts.filter((p) => p.community === name)
     : posts.slice(0, 3);
 
-  const onJoin = () => {
+  const onJoin = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setJoined((v) => !v);
+    setJoining(true);
+    try {
+      if (joined) {
+        await leaveCommunityCallable(id || fallback.id);
+        setJoined(false);
+      } else {
+        const res = await joinCommunityCallable(id || fallback.id);
+        if (res.status === "requested") {
+          Alert.alert("Request Sent", "Your request to join this private community has been submitted.");
+        } else {
+          setJoined(true);
+        }
+      }
+    } catch (err: any) {
+      console.warn("Join/leave error:", err);
+    } finally {
+      setJoining(false);
+    }
   };
+
 
   return (
     <View style={styles.container} testID="community-detail-screen">

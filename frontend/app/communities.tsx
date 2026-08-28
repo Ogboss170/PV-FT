@@ -64,9 +64,14 @@ export default function Communities() {
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.title}>Communities</Text>
-          <TouchableOpacity style={styles.iconBtn} testID="communities-add">
+          <TouchableOpacity
+            onPress={() => router.push("/create-community")}
+            style={styles.iconBtn}
+            testID="communities-add"
+          >
             <Ionicons name="add" size={22} color={colors.brand} />
           </TouchableOpacity>
+
         </View>
 
         <View style={styles.searchWrap}>
