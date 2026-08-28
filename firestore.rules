@@ -30,7 +30,23 @@ service cloud.firestore {
                   .affectedKeys()
                   .hasOnly(["followersCount", "followingCount", "postsCount"]));
       allow delete: if false;
+
+      // Username history audit trail — viewable by owner, written only by Admin/Functions
+      match /usernameHistory/{historyId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
     }
+
+    // ─── Usernames Index ─────────────────────────────────────────────────────
+    // Uniqueness lookup index.
+    // Public read so availability checks and profile URL resolution can query.
+    // Client writes are disabled — all claims/changes MUST go through Cloud Functions.
+    match /usernames/{usernameLower} {
+      allow read: if true;
+      allow write: if false;
+    }
+
 
     // ─── Posts ────────────────────────────────────────────────────────────────
 

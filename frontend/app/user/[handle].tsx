@@ -18,6 +18,7 @@ import {
   subscribeToUserProfile,
   type PublicUserProfile,
 } from "@/src/services/userService";
+import { getUidByUsername } from "@/src/services/usernameService";
 import { trackFollowUser, trackUnfollowUser, trackProfileViewed } from "@/src/services/analyticsService";
 
 const TABS = [
@@ -32,6 +33,7 @@ export default function PublicProfile() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const displayHandle = handle || "MidnightEcho";
 
+  const [resolvedUid, setResolvedUid] = useState<string | null>(null);
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [tab, setTab] = useState(0);
@@ -45,49 +47,57 @@ export default function PublicProfile() {
     trackProfileViewed(false);
   }, []);
 
-  // Live-subscribe to the target user's profile (by handle lookup — we use handle as uid for now)
-  // In production you'd do a Firestore query by username field first
+  // Resolve username -> uid
   useEffect(() => {
     if (!handle) return;
-    // Subscribe using handle as uid (adjust if you have a username→uid lookup)
-    const unsub = subscribeToUserProfile(handle as string, (p) => {
+    getUidByUsername(handle).then((uid) => {
+      // Fallback: if username lookup snap doesn't exist, assume handle might be uid directly
+      setResolvedUid(uid || handle);
+    });
+  }, [handle]);
+
+  // Live-subscribe to the target user's profile
+  useEffect(() => {
+    if (!resolvedUid) return;
+    const unsub = subscribeToUserProfile(resolvedUid, (p) => {
       if (p) setTargetProfile(p);
     });
     return () => unsub();
-  }, [handle]);
+  }, [resolvedUid]);
 
   // Check initial follow state
   useEffect(() => {
-    if (!currentUid || !handle) return;
-    isFollowing(currentUid, handle as string).then(setFollowing);
-  }, [currentUid, handle]);
+    if (!currentUid || !resolvedUid) return;
+    isFollowing(currentUid, resolvedUid).then(setFollowing);
+  }, [currentUid, resolvedUid]);
 
   const onFollow = useCallback(async () => {
-    if (!currentUid || !handle || followLoading) return;
+    if (!currentUid) {
+      Alert.alert("Sign In Required", "Please sign in to follow users.");
+      return;
+    }
+    if (!resolvedUid) return;
 
-    // Prevent self-follow
-    if (currentUid === (handle as string)) {
-      Alert.alert("", "You cannot follow yourself.");
+    if (currentUid === resolvedUid) {
+      Alert.alert("Action Not Allowed", "You cannot follow yourself.");
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setFollowLoading(true);
-
     try {
       if (following) {
-        const result = await unfollowUser(currentUid, handle as string);
-        if (result.success) {
+        const res = await unfollowUser(currentUid, resolvedUid);
+        if (res.success) {
           setFollowing(false);
           trackUnfollowUser();
         }
       } else {
-        const result = await followUser(currentUid, handle as string, currentUsername);
-        if (result.success) {
+        const res = await followUser(currentUid, resolvedUid, currentUsername);
+        if (res.success) {
           setFollowing(true);
           trackFollowUser();
-        } else if (result.reason === "already_following") {
-          setFollowing(true); // Sync state
+        } else if (res.reason === "already_following") {
+          setFollowing(true);
         }
       }
     } catch (e) {
@@ -95,7 +105,8 @@ export default function PublicProfile() {
     } finally {
       setFollowLoading(false);
     }
-  }, [currentUid, handle, following, followLoading, currentUsername]);
+  }, [currentUid, resolvedUid, following, currentUsername]);
+
 
 
   const feed = posts.slice(0, 3);

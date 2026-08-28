@@ -22,6 +22,7 @@ export { auth, db };
 export type UserProfile = {
   uid: string;
   username: string;
+  usernameLower?: string;
   email?: string;
   avatarIcon: string;
   avatarGradient: [string, string];
@@ -33,6 +34,8 @@ export type UserProfile = {
   followersCount: number;
   followingCount: number;
   postsCount: number;
+  lastUsernameChangeAt?: any;
+  nextUsernameChangeAt?: any;
   joinedAt?: any;
   isAnonymous?: boolean;
 };

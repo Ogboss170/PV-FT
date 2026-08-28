@@ -1,4 +1,4 @@
-﻿/**
+/**
  * analyticsService.ts
  * Firebase/Google Analytics integration for Private Voices.
  * Tracks all key social events without exposing PII.
@@ -61,3 +61,5 @@ export const trackCommentPosted = () => trackEvent("comment_posted");
 export const trackPostShared = () => trackEvent("post_shared");
 export const trackPostReported = () => trackEvent("post_reported");
 export const trackUserBlocked = () => trackEvent("user_blocked");
+export const trackUsernameChanged = () => trackEvent("username_changed");
+

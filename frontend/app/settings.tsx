@@ -165,9 +165,17 @@ export default function Settings() {
     {
       title: "Account",
       rows: [
+        {
+          icon: "at-outline",
+          label: "Change username",
+          hint: "Once every 60 days",
+          chevron: true,
+          onPress: () => router.push("/change-username"),
+        },
         { icon: "log-out-outline", label: "Log out", destructive: true, onPress: handleLogout },
       ],
     },
+
   ];
 
   return (

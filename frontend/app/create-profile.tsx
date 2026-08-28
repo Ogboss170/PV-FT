@@ -22,7 +22,9 @@ import { AVATAR_GRADIENTS, AVATAR_ICONS, THEME_COLORS } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { createUserProfile, ensureAnonymousAuth } from "@/src/services/authService";
 import { uploadProfilePhoto } from "@/src/services/userService";
+import { claimUsername } from "@/src/services/usernameService";
 import { auth } from "@/src/firebase";
+
 
 import { Image as ExpoImage } from "expo-image";
 import { pickImagesFromGallery } from "@/src/utils/imagePicker";
@@ -68,14 +70,25 @@ export default function CreateProfile() {
           }
         }
 
+        const finalUsername = username.trim() || "ShadowFox_42";
+
+        // Claim unique username via server callable
+        try {
+          await claimUsername(finalUsername);
+        } catch (e: any) {
+          console.warn("Claim username callable warning:", e);
+        }
+
         await createUserProfile(currentUser.uid, {
-          username: username.trim() || "ShadowFox_42",
+          username: finalUsername,
+          usernameLower: finalUsername.toLowerCase(),
           avatarIcon: customAvatar ? "custom" : AVATAR_ICONS[iconIdx],
           avatarGradient: customAvatar ? [customAvatar, customAvatar] : (AVATAR_GRADIENTS[gradientIdx] as any),
           themeColor: THEME_COLORS[themeIdx],
           bio: bio.trim(),
           ...(avatarUrl ? { avatarUrl } : {}),
         });
+
       }
     } catch (e) {
       console.error("Failed to save profile:", e);

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Private Voices — Firebase Cloud Functions
  *
  * Functions:
@@ -18,6 +18,13 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
+// Re-export username functions (defined in username.ts)
+export {
+  checkUsernameAvailability,
+  claimUsername,
+  changeUsername,
+} from "./username";
+
 // ─── onUserCreate ─────────────────────────────────────────────────────────────
 // Triggered every time a new Firebase Auth user is created.
 // Ensures the Firestore user document exists with zero counters.
@@ -27,9 +34,13 @@ export const onUserCreate = auth.user().onCreate(async (user) => {
   const userRef = db.collection("users").doc(user.uid);
   const snap = await userRef.get();
 
+  const rawUsername = user.displayName ?? `Voice_${user.uid.slice(0, 6)}`;
+  const lower = rawUsername.toLowerCase().replace(/[^a-z0-9._]/g, "_");
+
   const defaults = {
     uid: user.uid,
-    username: user.displayName ?? `Voice_${user.uid.slice(0, 6)}`,
+    username: rawUsername,
+    usernameLower: lower,
     email: user.email ?? null,
     avatarIcon: "person",
     avatarGradient: ["#8B5CF6", "#06B6D4"],
@@ -41,18 +52,34 @@ export const onUserCreate = auth.user().onCreate(async (user) => {
     followingCount: 0,
     postsCount: 0,
     isAnonymous: user.providerData.length === 0,
+    lastUsernameChangeAt: null,
+    nextUsernameChangeAt: null,
     joinedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
   if (!snap.exists) {
     await userRef.set(defaults);
+    // Also claim the username in the usernames index (best-effort — create-profile will overwrite)
+    const usernamesRef = db.collection("usernames").doc(lower);
+    const existingUsername = await usernamesRef.get();
+    if (!existingUsername.exists) {
+      await usernamesRef.set({
+        uid: user.uid,
+        username: rawUsername,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
   } else {
-    // Ensure counter fields are always present (migration safety)
+    // Ensure counter and username fields are always present (migration safety)
+    const existing = snap.data() ?? {};
     await userRef.set(
       {
-        followersCount: snap.data()?.followersCount ?? 0,
-        followingCount: snap.data()?.followingCount ?? 0,
-        postsCount: snap.data()?.postsCount ?? 0,
+        followersCount: existing.followersCount ?? 0,
+        followingCount: existing.followingCount ?? 0,
+        postsCount: existing.postsCount ?? 0,
+        usernameLower: existing.usernameLower ?? lower,
+        lastUsernameChangeAt: existing.lastUsernameChangeAt ?? null,
+        nextUsernameChangeAt: existing.nextUsernameChangeAt ?? null,
       },
       { merge: true }
     );
