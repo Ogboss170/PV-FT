@@ -371,7 +371,7 @@ export default function Create() {
           />
           <View style={styles.toolbarRow}>
             <TouchableOpacity style={styles.toolBtn} onPress={handlePickImage} testID="attach-image-btn">
-              <Ionicons name="image-outline" size={22} color={imageUrl ? colors.brand : colors.onSurfaceMuted} />
+              <Ionicons name="image-outline" size={22} color={images.length > 0 ? colors.brand : colors.onSurfaceMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.toolBtn, pollMode && styles.toolBtnActive]}
