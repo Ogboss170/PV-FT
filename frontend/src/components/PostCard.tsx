@@ -157,8 +157,8 @@ export default function PostCard({ post }: Props) {
 
         return (
           <View style={styles.multiImageWrap}>
-            {imgList.slice(0, 3).map((uri, idx) => (
-              <View key={idx} style={[styles.multiImageCell, { flex: 1 }]}>
+            {imgList.slice(0, 4).map((uri, idx) => (
+              <View key={idx} style={[styles.multiImageCell, { flex: 1, height: imgList.length > 2 ? 140 : 200 }]}>
                 <Image source={{ uri }} style={styles.image} contentFit="cover" transition={300} />
               </View>
             ))}
