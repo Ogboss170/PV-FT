@@ -62,12 +62,22 @@ export const createPostInFirestore = async (postData: {
   communityEmoji: string;
   text: string;
   image?: string;
+  images?: string[];
   poll?: { question: string; options: { label: string; votes: number }[]; total: number };
   userId: string;
 }) => {
   const postsRef = collection(db, "posts");
+  
+  // Strip any keys with `undefined` values because Firestore throws an error on `undefined`
+  const cleanData: Record<string, any> = {};
+  Object.entries(postData).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanData[key] = value;
+    }
+  });
+
   return await addDoc(postsRef, {
-    ...postData,
+    ...cleanData,
     likes: 0,
     commentsCount: 0,
     reposts: 0,
