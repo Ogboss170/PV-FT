@@ -182,7 +182,7 @@ export default function Create() {
               <Text style={styles.authorName} numberOfLines={1}>@{displayName}</Text>
               <View style={styles.anonBadge}>
                 <Ionicons name="shield-checkmark" size={11} color={colors.success} />
-                <Text style={styles.anonBadgeText}>Anonymous · always on</Text>
+                <Text style={styles.anonBadgeText}>Public Voice · Protected</Text>
               </View>
             </View>
           </View>
@@ -292,8 +292,8 @@ export default function Create() {
             </TouchableOpacity>
             <View style={{flex:1}} />
             <View style={styles.anonPill}>
-              <Ionicons name="lock-closed" size={12} color={colors.brand} />
-              <Text style={styles.anonPillText}>Anonymous</Text>
+              <Ionicons name="shield-checkmark" size={12} color={colors.brand} />
+              <Text style={styles.anonPillText}>Public Voice</Text>
               <View style={styles.switchOn}><View style={styles.switchThumb} /></View>
             </View>
           </View>

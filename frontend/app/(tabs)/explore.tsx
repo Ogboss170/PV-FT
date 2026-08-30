@@ -183,7 +183,7 @@ export default function Explore() {
         {/* Suggested Creators */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Anonymous creators</Text>
+            <Text style={styles.sectionTitle}>Popular creators</Text>
             <TouchableOpacity>
               <Text style={styles.sectionLink}>See all</Text>
             </TouchableOpacity>

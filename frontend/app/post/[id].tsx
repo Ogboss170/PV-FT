@@ -120,7 +120,7 @@ export default function PostDetail() {
     setReply("");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    const handle = auth?.currentUser?.displayName || auth?.currentUser?.email?.split("@")[0] || "Anonymous";
+    const handle = auth?.currentUser?.displayName || auth?.currentUser?.email?.split("@")[0] || "Voice";
 
     if (id) {
       await addCommentToFirestore(id as string, {

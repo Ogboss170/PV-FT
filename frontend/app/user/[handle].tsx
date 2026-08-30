@@ -176,13 +176,13 @@ export default function PublicProfile() {
                 </View>
                 <View style={styles.metaRow}>
                   <Ionicons name="shield-checkmark" size={11} color={colors.brand} />
-                  <Text style={styles.metaText}>Anonymous Voice</Text>
+                  <Text style={styles.metaText}>Public Profile</Text>
                 </View>
               </View>
             </View>
 
             <Text style={styles.bio}>
-              {targetProfile?.bio || "Softer conversations, kinder internet. Always anonymous, always sincere."}
+              {targetProfile?.bio || "Softer conversations, kinder internet. Recognizable pseudonyms, honest expressions."}
             </Text>
 
             {/* Mutual connections */}
@@ -198,7 +198,7 @@ export default function PublicProfile() {
                 ))}
               </View>
               <Text style={styles.mutualText}>
-                <Text style={{ fontWeight: "700", color: colors.onSurface }}>Anonymous</Text> and others follow
+                Followed by active community voices
               </Text>
             </View>
           </View>

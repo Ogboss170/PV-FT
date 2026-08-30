@@ -104,7 +104,7 @@ export default function Profile() {
 
           <View style={styles.anonBadge}>
             <Ionicons name="shield-checkmark" size={11} color={colors.brand} />
-            <Text style={styles.anonBadgeText}>Anonymous</Text>
+            <Text style={styles.anonBadgeText}>Public Profile</Text>
           </View>
 
           <Text style={styles.handle}>@{handle}</Text>
