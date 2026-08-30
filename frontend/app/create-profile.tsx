@@ -28,6 +28,7 @@ import { auth } from "@/src/firebase";
 
 import { Image as ExpoImage } from "expo-image";
 import { pickImagesFromGallery } from "@/src/utils/imagePicker";
+import { getUserProfile } from "@/src/services/authService";
 
 export default function CreateProfile() {
   const router = useRouter();
@@ -39,6 +40,22 @@ export default function CreateProfile() {
   const [customAvatar, setCustomAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Pre-fill existing user profile if logged in
+  React.useEffect(() => {
+    const currentUser = auth?.currentUser;
+    if (currentUser?.uid) {
+      getUserProfile(currentUser.uid).then((prof) => {
+        if (prof) {
+          if (prof.username) setUsername(prof.username);
+          if (prof.bio) setBio(prof.bio);
+          if (prof.avatarUrl) setCustomAvatar(prof.avatarUrl);
+        } else if (currentUser.displayName) {
+          setUsername(currentUser.displayName);
+        }
+      });
+    }
+  }, []);
 
   const handlePickCustomAvatar = async () => {
     const selected = await pickImagesFromGallery({ multiple: false, maxImages: 1 });
@@ -54,10 +71,10 @@ export default function CreateProfile() {
     try {
       const currentUser = auth?.currentUser || (await ensureAnonymousAuth());
       if (currentUser?.uid) {
-        let avatarUrl: string | undefined;
+        let avatarUrl: string | undefined = customAvatar?.startsWith("http") ? customAvatar : undefined;
 
-        // Upload custom photo to Firebase Storage if selected
-        if (customAvatar) {
+        // Upload custom photo to Firebase Storage if selected locally
+        if (customAvatar && !customAvatar.startsWith("http")) {
           try {
             avatarUrl = await uploadProfilePhoto(
               currentUser.uid,
@@ -70,7 +87,7 @@ export default function CreateProfile() {
           }
         }
 
-        const finalUsername = username.trim() || "ShadowFox_42";
+        const finalUsername = username.trim() || currentUser.displayName || "ShadowFox_42";
 
         // Claim unique username via server callable
         try {
@@ -95,7 +112,7 @@ export default function CreateProfile() {
     } finally {
       setLoading(false);
       setUploadProgress(0);
-      router.replace("/(tabs)");
+      router.back();
     }
   };
 
@@ -114,7 +131,7 @@ export default function CreateProfile() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} testID="create-profile-back">
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create Anonymous Profile</Text>
+          <Text style={styles.headerTitle}>Edit Profile</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -247,6 +264,7 @@ export default function CreateProfile() {
             <SafeAreaView edges={["bottom"]}>
               <TouchableOpacity
                 onPress={handleContinue}
+                disabled={loading}
                 activeOpacity={0.85}
                 style={styles.cta}
                 testID="create-profile-continue"
@@ -257,8 +275,14 @@ export default function CreateProfile() {
                   end={{ x: 1, y: 0 }}
                   style={styles.ctaBg}
                 >
-                  <Text style={styles.ctaText}>Enter Private Voices</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#0F172A" style={{ marginLeft: 8 }} />
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#0F172A" />
+                  ) : (
+                    <>
+                      <Text style={styles.ctaText}>Save</Text>
+                      <Ionicons name="checkmark" size={18} color="#0F172A" style={{ marginLeft: 8 }} />
+                    </>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
             </SafeAreaView>
