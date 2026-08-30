@@ -3,413 +3,298 @@ import * as Haptics from "expo-haptics";
 import { Image as ExpoImage } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  ActivityIndicator,
-} from "react-native";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Animated } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-
 import Avatar from "@/src/components/Avatar";
 import { AVATAR_GRADIENTS, Community } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
-import { createPostInFirestore } from "@/src/services/postService";
-import { uploadMediaToFirebase } from "@/src/services/mediaService";
-import { checkRateLimit, evaluateContentSafety } from "@/src/services/safetyService";
+import { createPostInFirestore, ReplyPermission } from "@/src/services/postService";
+import { uploadPostImages } from "@/src/services/mediaService";
+import { evaluateAIModeration } from "@/src/services/aiModerationService";
+import { checkRateLimit } from "@/src/services/safetyService";
 import { subscribeToCommunities } from "@/src/services/communityService";
+import { getUserProfile, UserProfile } from "@/src/services/authService";
 import { auth } from "@/src/firebase";
-
-const VISIBILITIES = [
-  { key: "public", label: "Public", icon: "globe-outline" },
-  { key: "followers", label: "Followers", icon: "people-outline" },
-  { key: "community", label: "Community", icon: "shield-half-outline" },
-];
-
 import { pickImagesFromGallery, takePictureWithCamera } from "@/src/utils/imagePicker";
+
+const MAX_CHARS = 500;
+const MAX_IMAGES = 4;
+const REPLY_OPTIONS = [
+  { key: "everyone", label: "Everyone", icon: "globe-outline", desc: "Anyone can reply" },
+  { key: "followers", label: "Followers", icon: "people-outline", desc: "Only followers" },
+  { key: "none", label: "No one", icon: "ban-outline", desc: "Replies disabled" },
+];
+const QUICK_EMOJIS = ["😊","😂","❤️","🔥","👀","🙌","💬","✨","😭","🤣","💯","🎉","🤔","😍","🚀"];
 
 export default function Create() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [userProfile, setUserProfile] = useState(null);
   const [text, setText] = useState("");
-  const [visibility, setVisibility] = useState(0);
-  const [liveCommunities, setLiveCommunities] = useState<Community[]>([]);
-  const [community, setCommunity] = useState<Community | null>(null);
+  const [images, setImages] = useState([]);
+  const [replyPermission, setReplyPermission] = useState("everyone");
   const [pollMode, setPollMode] = useState(false);
   const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [showEmojiTray, setShowEmojiTray] = useState(false);
+  const [liveCommunities, setLiveCommunities] = useState([]);
+  const [community, setCommunity] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [images, setImages] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [safetyError, setSafetyError] = useState("");
+  const [error, setError] = useState("");
+  const textInputRef = useRef(null);
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
+    const uid = auth && auth.currentUser && auth.currentUser.uid;
+    if (uid) {
+      getUserProfile(uid).then((prof) => { if (prof) setUserProfile(prof); });
+    }
+  }, []);
+
+  useEffect(() => {
     const unsub = subscribeToCommunities((comms) => {
       setLiveCommunities(comms);
-      if (comms.length > 0 && !community) {
-        setCommunity(comms[0]);
-      }
+      if (comms.length > 0) setCommunity((prev) => prev || comms[0]);
     });
     return () => unsub();
   }, []);
 
-  const addPollOption = () => {
-    if (pollOptions.length < 4) setPollOptions([...pollOptions, ""]);
-  };
-  const updateOption = (i: number, v: string) => {
-    const next = [...pollOptions];
-    next[i] = v;
-    setPollOptions(next);
+  useEffect(() => {
+    Animated.timing(progressAnim, { toValue: uploadProgress, duration: 200, useNativeDriver: false }).start();
+  }, [uploadProgress]);
+
+  const hasContent = text.trim().length > 0 || images.length > 0;
+  const isOverLimit = text.length > MAX_CHARS;
+  const charLeft = MAX_CHARS - text.length;
+  const charColor = text.length > 480 ? colors.error : text.length > 400 ? colors.warning : colors.onSurfaceDim;
+
+  const displayName = (userProfile && userProfile.username) || (auth && auth.currentUser && auth.currentUser.displayName) || "Anonymous";
+  const avatarGradient = (userProfile && userProfile.avatarGradient) || AVATAR_GRADIENTS[0];
+  const avatarIcon = (userProfile && userProfile.avatarIcon) || "flash";
+  const avatarUrl = userProfile && userProfile.avatarUrl;
+
+  const handleClose = useCallback(() => {
+    if (!hasContent) { router.back(); return; }
+    if (Platform.OS === "web") {
+      if (window.confirm("Discard post? Your changes will be lost.")) router.back();
+    } else {
+      Alert.alert("Discard post?", "Your changes will be lost.", [
+        { text: "Keep editing", style: "cancel" },
+        { text: "Discard", style: "destructive", onPress: () => router.back() },
+      ]);
+    }
+  }, [hasContent, router]);
+
+  const handlePickGallery = async () => {
+    if (images.length >= MAX_IMAGES) { setError("Maximum 4 images per post."); return; }
+    setError("");
+    const selected = await pickImagesFromGallery({ multiple: true, maxImages: MAX_IMAGES - images.length });
+    if (selected.length > 0) { setImages((prev) => [...prev, ...selected].slice(0, MAX_IMAGES)); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }
   };
 
-  const handlePickImage = async () => {
-    if (images.length >= 4) {
-      alert("You can attach a maximum of 4 images per post.");
-      return;
-    }
-    const maxToPick = 4 - images.length;
-    const selected = await pickImagesFromGallery({ multiple: true, maxImages: maxToPick });
-    if (selected.length > 0) {
-      setImages((prev) => [...prev, ...selected].slice(0, 4));
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    if (images.length >= 4) {
-      alert("You can attach a maximum of 4 images per post.");
-      return;
-    }
+  const handleCamera = async () => {
+    if (images.length >= MAX_IMAGES) { setError("Maximum 4 images per post."); return; }
+    setError("");
     const photoUri = await takePictureWithCamera();
-    if (photoUri) {
-      setImages((prev) => [...prev, photoUri].slice(0, 4));
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    if (photoUri) { setImages((prev) => [...prev, photoUri].slice(0, MAX_IMAGES)); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }
   };
 
-  const handleRemoveImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleMoveImage = (fromIndex: number, direction: "left" | "right") => {
+  const handleRemoveImage = (index) => { setImages((prev) => prev.filter((_, i) => i !== index)); };
+  const handleMoveImage = (fromIndex, direction) => {
     const toIndex = direction === "left" ? fromIndex - 1 : fromIndex + 1;
     if (toIndex < 0 || toIndex >= images.length) return;
-    const next = [...images];
-    const temp = next[fromIndex];
-    next[fromIndex] = next[toIndex];
-    next[toIndex] = temp;
-    setImages(next);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next = [...images]; [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]]; setImages(next);
   };
+  const addPollOption = () => { if (pollOptions.length < 4) setPollOptions([...pollOptions, ""]); };
+  const updatePollOption = (i, v) => { const next = [...pollOptions]; next[i] = v; setPollOptions(next); };
+  const insertEmoji = (emoji) => { setText((prev) => prev + emoji); setShowEmojiTray(false); textInputRef.current && textInputRef.current.focus(); };
 
   const onPost = async () => {
-    // Text-only, Image-only, or Text + Images allowed
-    if (!text.trim() && !pollMode && images.length === 0) {
-      setSafetyError("Post must contain text, an image, or a poll.");
-      return;
-    }
-
-    // Hard constraint: Maximum 4 images per post
-    if (images.length > 4) {
-      setSafetyError("A single post cannot contain more than 4 images.");
-      return;
-    }
-
-    setSafetyError("");
-
-    // 1. Rate limit check
-    if (!checkRateLimit("post")) {
-      setSafetyError("Rate limit reached. Please wait a minute before posting again.");
-      return;
-    }
-
-    // 2. Safety & Threat Evaluation on text (if present)
+    if (!hasContent && !pollMode) { setError("Write something or add an image to post."); return; }
+    if (isOverLimit) { setError("Text is too long (" + text.length + "/" + MAX_CHARS + " characters)."); return; }
+    if (Platform.OS === "web" && typeof navigator !== "undefined" && !navigator.onLine) { setError("You're offline. Check your connection and try again."); return; }
+    setError("");
+    if (!checkRateLimit("post")) { setError("Rate limit reached. Please wait a minute before posting again."); return; }
     if (text.trim()) {
-      const safetyCheck = evaluateContentSafety(text);
-      if (!safetyCheck.safe) {
-        setSafetyError(safetyCheck.reason || "Content violates safety guidelines.");
-        return;
-      }
+      const modResult = evaluateAIModeration(text.trim(), "post");
+      if (modResult.decision === "BLOCK") { setError("This post can't be published because it doesn't meet Private Voices' Community Guidelines."); return; }
     }
-
-    setSubmitting(true);
-    const userId = auth?.currentUser?.uid || "anon-user";
-    const userHandle = auth?.currentUser?.displayName || auth?.currentUser?.email?.split("@")[0] || "Anonymous";
-
+    setSubmitting(true); setUploadProgress(0);
+    const userId = (auth && auth.currentUser && auth.currentUser.uid) || "anon-user";
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Upload selected images to Firebase Storage
-      const uploadedUrls: string[] = [];
-      for (let i = 0; i < images.length; i++) {
-        const imgUri = images[i];
-        if (imgUri.startsWith("http://") || imgUri.startsWith("https://")) {
-          uploadedUrls.push(imgUri);
-        } else {
-          const path = `uploads/${userId}/posts/${Date.now()}_${i}.jpg`;
-          const firestoreUrl = await uploadMediaToFirebase(imgUri, path, (progress) => {
-            setUploadProgress(progress);
-          });
-          uploadedUrls.push(firestoreUrl);
-        }
+      let uploadedImages = [];
+      if (images.length > 0) {
+        try { uploadedImages = await uploadPostImages(images, userId, setUploadProgress); }
+        catch (uploadErr) { setError("Couldn't upload your image. Try again."); setSubmitting(false); return; }
       }
-
+      let status = "published";
+      if (text.trim()) { const mod = evaluateAIModeration(text.trim(), "post"); if (mod.decision === "REVIEW") status = "pending_review"; }
+      const pollData = (pollMode && pollOptions.filter((o) => o.trim()).length >= 2) ? { poll: { question: text.trim() || "Community Poll", options: pollOptions.filter((o) => o.trim()).map((label) => ({ label, votes: 0 })), total: 0 } } : {};
       await createPostInFirestore({
-        username: userHandle,
-        avatarColor: AVATAR_GRADIENTS[0],
-        avatarIcon: "flash",
-        community: community?.name || "Public Feed",
-        communityEmoji: community?.emoji || "🌐",
-        text: text.trim(),
-        image: uploadedUrls[0] || undefined,
-        images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
-        userId: userId,
-        ...(pollMode && pollOptions.filter(o => o.trim()).length >= 2 ? {
-          poll: {
-            question: text.trim() || "Community Poll",
-            options: pollOptions.filter(o => o.trim()).map(label => ({ label, votes: 0 })),
-            total: 0
-          }
-        } : {})
+        username: displayName, avatarColor: avatarGradient, avatarIcon, avatarUrl: avatarUrl || undefined,
+        community: (community && community.name) || "Public Feed", communityEmoji: (community && community.emoji) || "🌐",
+        text: text.trim(), images: uploadedImages.length > 0 ? uploadedImages : undefined,
+        userId, replyPermission, visibility: "public", status, ...pollData,
       });
-
       router.back();
-    } catch (e: any) {
+    } catch (e) {
       console.error("Failed to publish post:", e);
-      setSafetyError(e.message || "Failed to publish post. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
+      if (e && (e.code === "unavailable" || (e.message && e.message.includes("offline")))) { setError("You're offline. Check your connection and try again."); }
+      else { setError((e && e.message) || "Failed to publish. Please try again."); }
+    } finally { setSubmitting(false); }
   };
-
-  const handle = auth?.currentUser?.displayName || auth?.currentUser?.email?.split("@")[0] || "Anonymous";
 
   return (
     <View style={styles.container} testID="create-post-screen">
-      <LinearGradient
-        colors={["#0F172A", "#0B1220"]}
-        style={StyleSheet.absoluteFillObject}
-      />
-
+      <LinearGradient colors={["#0F172A", "#0B1220"]} style={StyleSheet.absoluteFillObject} />
       <SafeAreaView edges={["top"]} style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} testID="create-cancel">
+        <TouchableOpacity onPress={handleClose} style={styles.headerBtn} testID="create-cancel" accessibilityLabel="Close composer">
           <Ionicons name="close" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Post</Text>
-        <TouchableOpacity onPress={onPost} disabled={submitting} activeOpacity={0.85} testID="create-post-submit">
-          <LinearGradient
-            colors={["#06B6D4", "#0284C7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.postBtn}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.postBtnText}>Post</Text>
-            )}
+        <TouchableOpacity onPress={onPost} disabled={submitting || !hasContent || isOverLimit} activeOpacity={0.85} testID="create-post-submit" accessibilityLabel="Post">
+          <LinearGradient colors={(hasContent && !isOverLimit && !submitting) ? ["#06B6D4","#0284C7"] : ["#334155","#334155"]} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.postBtn}>
+            {submitting ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={[styles.postBtnText,{color:hasContent&&!isOverLimit?"#0F172A":colors.onSurfaceDim}]}>{submitting?"Posting…":"Post"}</Text>}
           </LinearGradient>
         </TouchableOpacity>
       </SafeAreaView>
-
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
-      >
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 200 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Safety / Validation Error */}
-          {safetyError ? (
-            <View style={styles.errorBox}>
-              <Ionicons name="alert-circle" size={16} color="#EF4444" />
-              <Text style={styles.errorText}>{safetyError}</Text>
+      {submitting && uploadProgress > 0 && (
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressBar,{width:progressAnim.interpolate({inputRange:[0,100],outputRange:["0%","100%"]})}]} />
+        </View>
+      )}
+      <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==="ios"?"padding":undefined} keyboardVerticalOffset={0}>
+        <ScrollView contentContainerStyle={{paddingBottom:140+insets.bottom}} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {error ? (
+            <View style={styles.errorBox} accessibilityRole="alert">
+              <Ionicons name="alert-circle" size={16} color={colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity onPress={() => setError("")}><Ionicons name="close" size={14} color={colors.error} /></TouchableOpacity>
             </View>
           ) : null}
-
-          {/* Author row */}
           <View style={styles.authorRow}>
-            <Avatar size={44} gradient={AVATAR_GRADIENTS[0]} icon="flash" />
-            <View style={{ marginLeft: spacing.md, flex: 1 }}>
-              <Text style={styles.authorName}>@{handle}</Text>
-              <View style={styles.anonRow}>
-                <Ionicons name="shield-checkmark" size={12} color={colors.success} />
-                <Text style={styles.anonText}>Anonymous · always on</Text>
+            {avatarUrl
+              ? <ExpoImage source={{uri:avatarUrl}} style={styles.authorAvatar} contentFit="cover" />
+              : <Avatar size={44} gradient={avatarGradient} icon={avatarIcon} />}
+            <View style={{marginLeft:spacing.md,flex:1}}>
+              <Text style={styles.authorName} numberOfLines={1}>@{displayName}</Text>
+              <View style={styles.anonBadge}>
+                <Ionicons name="shield-checkmark" size={11} color={colors.success} />
+                <Text style={styles.anonBadgeText}>Anonymous · always on</Text>
               </View>
             </View>
           </View>
-
-          {/* Text input */}
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="What's echoing on your mind?"
-            placeholderTextColor={colors.onSurfaceDim}
-            multiline
-            style={styles.textInput}
-            testID="create-post-text"
-          />
-
-          {/* Attached images preview (up to 4 images with reorder & remove) */}
+          <TextInput ref={textInputRef} value={text} onChangeText={(v)=>{setText(v);if(error)setError("");}} placeholder="What's echoing on your mind?" placeholderTextColor={colors.onSurfaceDim} multiline style={styles.textInput} testID="create-post-text" onFocus={()=>setShowEmojiTray(false)} />
+          <View style={styles.charCountRow}>
+            <View style={[styles.charArc,{borderColor:charColor}]}>
+              <Text style={[styles.charArcText,{color:charColor}]}>{charLeft}</Text>
+            </View>
+          </View>
           {images.length > 0 && (
-            <View style={styles.imagePreviewWrap}>
-              <Text style={styles.imageCountBadge}>
-                {images.length} / 4 Images (Drag/Move & Preview)
-              </Text>
+            <View style={styles.imagePreviews}>
               <View style={styles.imagePreviewRow}>
                 {images.map((imgUri, idx) => (
-                  <View key={idx} style={styles.imageThumbWrap}>
-                    <ExpoImage source={{ uri: imgUri }} style={styles.imageThumb} contentFit="cover" />
-                    
-                    {/* Move controls */}
-                    <View style={styles.reorderOverlay}>
-                      {idx > 0 && (
-                        <TouchableOpacity
-                          style={styles.reorderBtn}
-                          onPress={() => handleMoveImage(idx, "left")}
-                          testID={`move-left-${idx}`}
-                        >
-                          <Ionicons name="chevron-back" size={12} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      )}
-                      {idx < images.length - 1 && (
-                        <TouchableOpacity
-                          style={styles.reorderBtn}
-                          onPress={() => handleMoveImage(idx, "right")}
-                          testID={`move-right-${idx}`}
-                        >
-                          <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.removeImgBtn}
-                      onPress={() => handleRemoveImage(idx)}
-                      testID={`remove-image-${idx}`}
-                    >
-                      <Ionicons name="close" size={14} color="#FFFFFF" />
+                  <View key={"img"+idx} style={styles.imageThumbWrap}>
+                    <ExpoImage source={{uri:imgUri}} style={styles.imageThumb} contentFit="cover" />
+                    <TouchableOpacity style={styles.removeImgBtn} onPress={()=>handleRemoveImage(idx)} testID={"remove-image-"+idx} accessibilityLabel={"Remove image "+(idx+1)}>
+                      <Ionicons name="close" size={12} color="#FFF" />
                     </TouchableOpacity>
+                    <View style={styles.reorderRow}>
+                      {idx > 0 && <TouchableOpacity style={styles.reorderBtn} onPress={()=>handleMoveImage(idx,"left")} testID={"move-left-"+idx}><Ionicons name="chevron-back" size={11} color="#FFF" /></TouchableOpacity>}
+                      {idx < images.length-1 && <TouchableOpacity style={styles.reorderBtn} onPress={()=>handleMoveImage(idx,"right")} testID={"move-right-"+idx}><Ionicons name="chevron-forward" size={11} color="#FFF" /></TouchableOpacity>}
+                    </View>
+                    <View style={styles.indexBadge}><Text style={styles.indexBadgeText}>{idx+1}</Text></View>
                   </View>
                 ))}
-                {images.length < 4 && (
-                  <TouchableOpacity style={styles.addMoreImgBtn} onPress={handlePickImage}>
-                    <Ionicons name="add" size={24} color={colors.brand} />
-                    <Text style={styles.addMoreImgText}>Add Image</Text>
+                {images.length < MAX_IMAGES && (
+                  <TouchableOpacity style={styles.addImgSlot} onPress={handlePickGallery} testID="add-image-slot" accessibilityLabel="Add image">
+                    <Ionicons name="add" size={28} color={colors.brand} /><Text style={styles.addImgSlotText}>Add image</Text>
                   </TouchableOpacity>
                 )}
               </View>
+              <Text style={styles.imageCountNote}>{images.length} / {MAX_IMAGES} images</Text>
             </View>
           )}
           {pollMode && (
             <View style={styles.pollBuilder}>
               <View style={styles.pollHeader}>
-                <Ionicons name="stats-chart" size={16} color={colors.brand} />
+                <Ionicons name="stats-chart" size={15} color={colors.brand} />
                 <Text style={styles.pollHeaderText}>Poll</Text>
-                <View style={{ flex: 1 }} />
-                <TouchableOpacity onPress={() => setPollMode(false)}>
-                  <Ionicons name="close-circle" size={18} color={colors.onSurfaceDim} />
-                </TouchableOpacity>
+                <View style={{flex:1}} />
+                <TouchableOpacity onPress={()=>setPollMode(false)}><Ionicons name="close-circle" size={18} color={colors.onSurfaceDim} /></TouchableOpacity>
               </View>
-              {pollOptions.map((opt, i) => (
+              {pollOptions.map((opt,i) => (
                 <View key={i} style={styles.pollField}>
                   <View style={styles.pollDot} />
-                  <TextInput
-                    value={opt}
-                    onChangeText={(v) => updateOption(i, v)}
-                    placeholder={`Option ${i + 1}`}
-                    placeholderTextColor={colors.onSurfaceDim}
-                    style={styles.pollInput}
-                    testID={`poll-option-${i}`}
-                  />
+                  <TextInput value={opt} onChangeText={(v)=>updatePollOption(i,v)} placeholder={"Option "+(i+1)} placeholderTextColor={colors.onSurfaceDim} style={styles.pollInput} testID={"poll-option-"+i} />
                 </View>
               ))}
-              {pollOptions.length < 4 && (
-                <TouchableOpacity onPress={addPollOption} style={styles.pollAdd} testID="poll-add-option">
-                  <Ionicons name="add-circle" size={18} color={colors.brand} />
-                  <Text style={styles.pollAddText}>Add option</Text>
-                </TouchableOpacity>
-              )}
+              {pollOptions.length < 4 && <TouchableOpacity onPress={addPollOption} style={styles.pollAdd} testID="poll-add-option"><Ionicons name="add-circle" size={16} color={colors.brand} /><Text style={styles.pollAddText}>Add option</Text></TouchableOpacity>}
             </View>
           )}
-
-          {/* Visibility */}
-          <Text style={styles.sectionLabel}>Who can see this echo?</Text>
-          <View style={styles.visRow}>
-            {VISIBILITIES.map((v, i) => {
-              const active = i === visibility;
+          <Text style={styles.sectionLabel}>Who can interact?</Text>
+          <View style={styles.replyRow}>
+            {REPLY_OPTIONS.map((opt) => {
+              const active = replyPermission === opt.key;
               return (
-                <TouchableOpacity
-                  key={v.key}
-                  onPress={() => setVisibility(i)}
-                  style={[styles.visCard, active && styles.visCardActive]}
-                  testID={`visibility-${v.key}`}
-                >
-                  <Ionicons name={v.icon as any} size={18} color={active ? colors.brand : colors.onSurfaceMuted} />
-                  <Text style={[styles.visText, active && { color: colors.brand, fontWeight: "700" }]}>{v.label}</Text>
+                <TouchableOpacity key={opt.key} onPress={()=>setReplyPermission(opt.key)} style={[styles.replyChip,active&&styles.replyChipActive]} testID={"reply-"+opt.key} accessibilityLabel={opt.desc}>
+                  <Ionicons name={opt.icon} size={14} color={active?colors.brand:colors.onSurfaceMuted} />
+                  <Text style={[styles.replyChipText,active&&{color:colors.brand}]}>{opt.label}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-
-          {/* AI helper */}
-          <View style={styles.aiCard}>
-            <LinearGradient
-              colors={["rgba(6,182,212,0.15)", "rgba(139,92,246,0.05)"]}
-              style={StyleSheet.absoluteFillObject}
-            />
-            <View style={styles.aiIcon}>
-              <Ionicons name="sparkles" size={16} color={colors.brand} />
+          {liveCommunities.length > 0 && (
+            <>
+              <Text style={styles.sectionLabel}>Post to community</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.commRow}>
+                {liveCommunities.slice(0,10).map((c) => {
+                  const active = community && community.id === c.id;
+                  return (
+                    <TouchableOpacity key={c.id} onPress={()=>setCommunity(c)} style={[styles.commChip,active&&styles.commChipActive]} testID={"community-chip-"+c.id}>
+                      <Text style={styles.commChipEmoji}>{c.emoji}</Text>
+                      <Text style={[styles.commChipText,active&&{color:colors.brand}]} numberOfLines={1}>{c.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </>
+          )}
+          {showEmojiTray && (
+            <View style={styles.emojiTray}>
+              {QUICK_EMOJIS.map((emoji) => (
+                <TouchableOpacity key={emoji} onPress={()=>insertEmoji(emoji)} style={styles.emojiBtn} accessibilityLabel={"Insert "+emoji}>
+                  <Text style={styles.emojiText}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.aiTitle}>AI kindness check</Text>
-              <Text style={styles.aiSub}>We&apos;ll gently flag anything that reads unkind before you post.</Text>
-            </View>
-          </View>
+          )}
         </ScrollView>
-
-        {/* Bottom toolbar */}
-        <View style={[styles.toolbar, { paddingBottom: 12 + insets.bottom }]}>
-          <LinearGradient
-            colors={["rgba(15,23,42,0)", "rgba(15,23,42,0.95)"]}
-            style={StyleSheet.absoluteFillObject}
-          />
+        <View style={[styles.toolbar,{paddingBottom:8+insets.bottom}]}>
+          <LinearGradient colors={["rgba(15,23,42,0)","rgba(15,23,42,0.98)"]} style={StyleSheet.absoluteFillObject} />
           <View style={styles.toolbarRow}>
-            <TouchableOpacity style={styles.toolBtn} onPress={handleTakePhoto} testID="attach-camera-btn">
-              <Ionicons name="camera-outline" size={22} color={images.length > 0 ? colors.brand : colors.onSurfaceMuted} />
+            <TouchableOpacity style={styles.toolBtn} onPress={handlePickGallery} testID="attach-image-btn" accessibilityLabel="Attach image from gallery">
+              <Ionicons name="image-outline" size={22} color={images.length>0?colors.brand:colors.onSurfaceMuted} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={handlePickImage} testID="attach-image-btn">
-              <Ionicons name="image-outline" size={22} color={images.length > 0 ? colors.brand : colors.onSurfaceMuted} />
+            <TouchableOpacity style={styles.toolBtn} onPress={handleCamera} testID="attach-camera-btn" accessibilityLabel="Take a photo">
+              <Ionicons name="camera-outline" size={22} color={colors.onSurfaceMuted} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toolBtn, pollMode && styles.toolBtnActive]}
-              onPress={() => setPollMode(!pollMode)}
-              testID="attach-poll-btn"
-            >
-              <Ionicons name="stats-chart-outline" size={22} color={pollMode ? colors.brand : colors.onSurfaceMuted} />
+            <TouchableOpacity style={[styles.toolBtn,showEmojiTray&&styles.toolBtnActive]} onPress={()=>setShowEmojiTray((v)=>!v)} testID="attach-emoji-btn" accessibilityLabel="Insert emoji">
+              <Ionicons name="happy-outline" size={22} color={showEmojiTray?colors.brand:colors.onSurfaceMuted} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} testID="attach-emoji-btn">
-              <Ionicons name="happy-outline" size={22} color={colors.onSurfaceMuted} />
+            <TouchableOpacity style={styles.toolBtn} testID="attach-gif-btn" accessibilityLabel="Insert GIF (coming soon)">
+              <Text style={styles.gifLabel}>GIF</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} testID="attach-gif-btn">
-              <Ionicons name="film-outline" size={22} color={colors.onSurfaceMuted} />
+            <TouchableOpacity style={[styles.toolBtn,pollMode&&styles.toolBtnActive]} onPress={()=>setPollMode((v)=>!v)} testID="attach-poll-btn" accessibilityLabel="Add poll">
+              <Ionicons name="stats-chart-outline" size={22} color={pollMode?colors.brand:colors.onSurfaceMuted} />
             </TouchableOpacity>
-
-            <View style={{ flex: 1 }} />
-
-            <View style={styles.anonToggle}>
-              <Ionicons name="lock-closed" size={14} color={colors.brand} />
-              <Text style={styles.anonToggleText}>Anonymous</Text>
-              <View style={styles.switch}>
-                <View style={styles.switchThumb} />
-              </View>
+            <View style={{flex:1}} />
+            <View style={styles.anonPill}>
+              <Ionicons name="lock-closed" size={12} color={colors.brand} />
+              <Text style={styles.anonPillText}>Anonymous</Text>
+              <View style={styles.switchOn}><View style={styles.switchThumb} /></View>
             </View>
           </View>
         </View>
@@ -433,37 +318,102 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: { ...font.h3, fontSize: 17, color: colors.onSurface },
-  communityName: { color: colors.brand, fontWeight: "700", fontSize: 13, marginRight: 4 },
   postBtn: {
-    height: 40,
+    height: 38,
     paddingHorizontal: 20,
     borderRadius: radii.pill,
     alignItems: "center",
     justifyContent: "center",
+    minWidth: 72,
   },
-  postBtnText: { color: "#0F172A", fontWeight: "800", fontSize: 14 },
+  postBtnText: { fontWeight: "800", fontSize: 14 },
+  progressTrack: { height: 2, backgroundColor: colors.surfaceSecondary, width: "100%" },
+  progressBar: { height: 2, backgroundColor: colors.brand },
   authorRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
+  authorAvatar: { width: 44, height: 44, borderRadius: 22 },
   authorName: { ...font.title, fontSize: 15 },
-  anonRow: { flexDirection: "row", alignItems: "center", marginTop: 3 },
-  anonText: { ...font.small, color: colors.success, marginLeft: 4, fontWeight: "600" },
+  anonBadge: { flexDirection: "row", alignItems: "center", marginTop: 3 },
+  anonBadgeText: { ...font.small, color: colors.success, marginLeft: 4, fontWeight: "600" },
   textInput: {
-    minHeight: 160,
+    minHeight: 140,
     fontSize: 18,
     color: colors.onSurface,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     textAlignVertical: "top",
     lineHeight: 26,
   },
+  charCountRow: { alignItems: "flex-end", paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
+  charArc: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  charArcText: { fontSize: 10, fontWeight: "700" },
+  imagePreviews: { paddingHorizontal: spacing.lg, marginBottom: spacing.md },
+  imagePreviewRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 6 },
+  imageThumbWrap: {
+    position: "relative",
+    width: 90,
+    height: 90,
+    borderRadius: radii.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  imageThumb: { width: "100%", height: "100%" },
+  removeImgBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reorderRow: { position: "absolute", bottom: 4, left: 4, flexDirection: "row", gap: 4 },
+  reorderBtn: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  indexBadge: {
+    position: "absolute",
+    bottom: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  indexBadgeText: { fontSize: 9, fontWeight: "800", color: "#0F172A" },
+  addImgSlot: {
+    width: 90,
+    height: 90,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: colors.brandBorder,
+    backgroundColor: colors.brandSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addImgSlotText: { fontSize: 10, fontWeight: "700", color: colors.brand, marginTop: 2 },
+  imageCountNote: { fontSize: 11, color: colors.onSurfaceDim, fontWeight: "600" },
   pollBuilder: {
     marginHorizontal: spacing.lg,
     padding: spacing.md,
@@ -486,14 +436,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.glassBorder,
   },
-  pollDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: colors.brand,
-    marginRight: 10,
-  },
+  pollDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: colors.brand, marginRight: 10 },
   pollInput: { flex: 1, color: colors.onSurface, fontSize: 14 },
   pollAdd: { flexDirection: "row", alignItems: "center", marginTop: 10 },
   pollAddText: { color: colors.brand, marginLeft: 6, fontWeight: "600", fontSize: 13 },
@@ -504,45 +447,66 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     fontSize: 11,
     marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
-  visRow: { flexDirection: "row", gap: 8, paddingHorizontal: spacing.lg },
-  visCard: {
+  replyRow: { flexDirection: "row", gap: 8, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
+  replyChip: {
     flex: 1,
-    height: 74,
-    borderRadius: radii.lg,
-    backgroundColor: colors.surfaceSecondary,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "transparent",
-  },
-  visCardActive: { borderColor: colors.brand, backgroundColor: colors.brandSoft },
-  visText: { ...font.caption, marginTop: 6, fontWeight: "600" },
-  aiCard: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.xl,
-    padding: spacing.md,
-    borderRadius: radii.lg,
     flexDirection: "row",
     alignItems: "center",
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.brandBorder,
-    backgroundColor: colors.surfaceSecondary,
-  },
-  aiIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.brandSoft,
-    alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    gap: 5,
+    height: 40,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
-  aiTitle: { ...font.title, fontSize: 13 },
-  aiSub: { ...font.small, marginTop: 2 },
+  replyChipActive: { borderColor: colors.brand, backgroundColor: colors.brandSoft },
+  replyChipText: { ...font.caption, fontSize: 12, fontWeight: "600" },
+  commRow: { paddingHorizontal: spacing.lg, gap: 8, paddingBottom: spacing.sm },
+  commChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  commChipActive: { borderColor: colors.brand, backgroundColor: colors.brandSoft },
+  commChipEmoji: { fontSize: 14 },
+  commChipText: { ...font.caption, fontWeight: "600", maxWidth: 90 },
+  emojiTray: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radii.lg,
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.glassBorder,
+  },
+  emojiBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radii.sm },
+  emojiText: { fontSize: 22 },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: "rgba(239, 68, 68, 0.10)",
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
+  },
+  errorText: { color: colors.error, fontSize: 13, fontWeight: "600", flex: 1 },
   toolbar: {
     position: "absolute",
     bottom: 0,
@@ -562,12 +526,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.04)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
+    marginRight: 6,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.glassBorder,
   },
   toolBtnActive: { backgroundColor: colors.brandSoft, borderColor: colors.brandBorder },
-  anonToggle: {
+  gifLabel: { color: colors.onSurfaceMuted, fontWeight: "800", fontSize: 11 },
+  anonPill: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.brandSoft,
@@ -577,109 +542,17 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.brandBorder,
+    gap: 4,
   },
-  anonToggleText: { color: colors.brand, fontWeight: "700", fontSize: 12, marginLeft: 4, marginRight: 8 },
-  switch: {
-    width: 34,
-    height: 20,
-    borderRadius: 10,
+  anonPillText: { color: colors.brand, fontWeight: "700", fontSize: 11 },
+  switchOn: {
+    width: 32,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: colors.brand,
     justifyContent: "center",
     alignItems: "flex-end",
     padding: 2,
   },
-  switchThumb: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
-  },
-  errorBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    padding: spacing.md,
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
-  },
-  errorText: {
-    color: "#EF4444",
-    fontSize: 13,
-    fontWeight: "600",
-    flex: 1,
-  },
-  imagePreviewWrap: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  imageCountBadge: {
-    color: colors.brand,
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    marginBottom: 8,
-  },
-  imagePreviewRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  imageThumbWrap: {
-    position: "relative",
-    width: 85,
-    height: 85,
-    borderRadius: radii.md,
-    overflow: "hidden",
-  },
-  imageThumb: {
-    width: "100%",
-    height: "100%",
-  },
-  reorderOverlay: {
-    position: "absolute",
-    bottom: 4,
-    left: 4,
-    flexDirection: "row",
-    gap: 4,
-  },
-  reorderBtn: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  removeImgBtn: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addMoreImgBtn: {
-    width: 85,
-    height: 85,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: colors.brandBorder,
-    backgroundColor: colors.brandSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addMoreImgText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.brand,
-    marginTop: 2,
-  },
+  switchThumb: { width: 14, height: 14, borderRadius: 7, backgroundColor: "#FFFFFF" },
 });
