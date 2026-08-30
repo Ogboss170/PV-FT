@@ -1,7 +1,8 @@
 from fastapi import FastAPI, APIRouter
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+import firebase_admin
+from firebase_admin import credentials, firestore
 import os
 import logging
 from pathlib import Path
@@ -10,21 +11,31 @@ from typing import List
 import uuid
 from datetime import datetime
 
-
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# Firebase Admin Firestore Initialization
+if not firebase_admin._apps:
+    # Initialize using service account key file or default project options
+    cred_path = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY")
+    if cred_path and os.path.exists(cred_path):
+        cred = credentials.Certificate(cred_path)
+        firebase_admin.initialize_app(cred, {
+            'projectId': os.environ.get("FIREBASE_PROJECT_ID", "private-vioces")
+        })
+    else:
+        # Fallback to default application credentials or project ID initialization
+        firebase_admin.initialize_app(options={
+            'projectId': os.environ.get("FIREBASE_PROJECT_ID", "private-vioces")
+        })
+
+db = firestore.client()
 
 # Create the main app without a prefix
 app = FastAPI()
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
-
 
 # Define Models
 class StatusCheck(BaseModel):
@@ -35,22 +46,37 @@ class StatusCheck(BaseModel):
 class StatusCheckCreate(BaseModel):
     client_name: str
 
-# Add your routes to the router instead of directly to app
+# Add routes to the router
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Private Voices API - Connected to Firestore"}
 
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     status_dict = input.dict()
     status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
+    
+    doc_ref = db.collection("status_checks").document(status_obj.id)
+    doc_ref.set({
+        "id": status_obj.id,
+        "client_name": status_obj.client_name,
+        "timestamp": status_obj.timestamp.isoformat()
+    })
     return status_obj
 
 @api_router.get("/status", response_model=List[StatusCheck])
 async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
+    docs = db.collection("status_checks").order_by("timestamp", direction=firestore.Query.DESCENDING).limit(100).stream()
+    checks = []
+    for doc in docs:
+        data = doc.to_dict()
+        if "timestamp" in data and isinstance(data["timestamp"], str):
+            try:
+                data["timestamp"] = datetime.fromisoformat(data["timestamp"])
+            except ValueError:
+                data["timestamp"] = datetime.utcnow()
+        checks.append(StatusCheck(**data))
+    return checks
 
 # Include the router in the main app
 app.include_router(api_router)
@@ -70,6 +96,3 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
