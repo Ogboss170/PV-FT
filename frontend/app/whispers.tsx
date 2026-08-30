@@ -82,11 +82,12 @@ export default function Whispers() {
 
   // ── Real user handle ──────────────────────────────────────
   const user = auth?.currentUser;
-  const handle: string =
+  const rawHandle: string =
     user?.displayName?.trim()
       ? user.displayName.trim()
       : user?.email?.split("@")[0] ?? user?.uid ?? "anonymous";
-  const fullLink = `${BASE_URL}/@${handle}`;
+  const handle = rawHandle.replace(/^@/, "").trim();
+  const fullLink = `${BASE_URL}/${handle}`;
   // ─────────────────────────────────────────────────────────
 
   useEffect(() => {

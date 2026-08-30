@@ -37,7 +37,8 @@ export default function WhisperSend() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { handle } = useLocalSearchParams<{ handle: string }>();
-  const displayHandle = handle || "ShadowFox_42";
+  const cleanHandleParam = handle ? handle.replace(/^@/, "").trim() : "";
+  const displayHandle = cleanHandleParam || "ShadowFox_42";
   const [message, setMessage] = useState("");
   const [mood, setMood] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
