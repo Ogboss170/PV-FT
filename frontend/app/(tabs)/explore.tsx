@@ -16,8 +16,10 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import Avatar from "@/src/components/Avatar";
 import { colors, font, radii, spacing } from "@/src/theme";
-import { subscribeToCommunities, CommunityFull } from "@/src/services/communityService";
-import { Community } from "@/src/mockData";
+import { subscribeToCommunities } from "@/src/services/communityService";
+import { subscribeToSuggestedCreators, PublicUserProfile } from "@/src/services/userService";
+import { subscribeToPosts } from "@/src/services/postService";
+import { Community, Post } from "@/src/mockData";
 
 const TABS = ["🔥 Trending", "For You", "💬 Popular Voices", "Communities"];
 
@@ -27,13 +29,44 @@ export default function Explore() {
   const [tab, setTab] = useState(0);
   const [query, setQuery] = useState("");
   const [liveCommunities, setLiveCommunities] = useState<Community[]>([]);
+  const [livePosts, setLivePosts] = useState<Post[]>([]);
+  const [liveCreators, setLiveCreators] = useState<PublicUserProfile[]>([]);
 
   React.useEffect(() => {
-    const unsub = subscribeToCommunities((comms) => {
-      setLiveCommunities(comms);
-    });
-    return () => unsub();
+    const unsubComm = subscribeToCommunities(setLiveCommunities);
+    const unsubPosts = subscribeToPosts(setLivePosts);
+    const unsubCreators = subscribeToSuggestedCreators(setLiveCreators);
+
+    return () => {
+      unsubComm();
+      unsubPosts();
+      unsubCreators();
+    };
   }, []);
+
+  // Dynamically extract hashtags from live posts
+  const tagsMap = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    livePosts.forEach((p) => {
+      const hashtags = p.text.match(/#[a-zA-Z0-9_]+/g);
+      if (hashtags) {
+        hashtags.forEach((tag) => {
+          counts[tag] = (counts[tag] || 0) + 1;
+        });
+      }
+    });
+    return Object.entries(counts)
+      .map(([tag, count]) => ({ tag, posts: `${count}` }))
+      .sort((a, b) => parseInt(b.posts) - parseInt(a.posts));
+  }, [livePosts]);
+
+  const filteredTags = tagsMap.filter(
+    (t) => !query || t.tag.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const filteredCreators = liveCreators.filter(
+    (c) => !query || c.username.toLowerCase().includes(query.toLowerCase())
+  );
 
   const filteredCommunities = liveCommunities.filter(
     (cm) => !query || cm.name.toLowerCase().includes(query.toLowerCase()) || cm.description.toLowerCase().includes(query.toLowerCase())
@@ -158,18 +191,23 @@ export default function Explore() {
           <FlatList
             horizontal
             data={filteredCreators}
-            keyExtractor={(c) => c.name}
+            keyExtractor={(c) => c.uid}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: 12 }}
             renderItem={({ item, index }) => (
-              <View style={styles.creatorCard} testID={`creator-card-${index}`}>
-                <Avatar size={64} gradient={item.gradient} icon={item.icon} />
-                <Text style={styles.creatorName} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.creatorFollowers}>{item.followers} followers</Text>
+              <TouchableOpacity
+                style={styles.creatorCard}
+                onPress={() => router.push({ pathname: "/user/[handle]", params: { handle: item.username } } as any)}
+                activeOpacity={0.85}
+                testID={`creator-card-${index}`}
+              >
+                <Avatar size={64} gradient={item.avatarGradient} icon={item.avatarIcon} />
+                <Text style={styles.creatorName} numberOfLines={1}>@{item.username}</Text>
+                <Text style={styles.creatorFollowers}>{item.followersCount} followers</Text>
                 <TouchableOpacity style={styles.creatorBtn}>
                   <Text style={styles.creatorBtnText}>Follow</Text>
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             )}
           />
         </View>

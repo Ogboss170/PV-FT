@@ -231,6 +231,38 @@ export const subscribeToUserProfile = (
   });
 };
 
+/**
+ * Real-time subscription to popular creators in Firestore.
+ */
+export const subscribeToSuggestedCreators = (
+  callback: (creators: PublicUserProfile[]) => void
+): (() => void) => {
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, orderBy("followersCount", "desc"), limit(20));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const creators: PublicUserProfile[] = snapshot.docs.map((docSnap) => {
+        const d = docSnap.data() as UserProfile;
+        return {
+          uid: d.uid,
+          username: d.username || "Anonymous Creator",
+          avatarIcon: d.avatarIcon || "planet",
+          avatarGradient: d.avatarGradient || ["#8B5CF6", "#EC4899"],
+          avatarUrl: d.avatarUrl,
+          bio: d.bio,
+          followersCount: d.followersCount ?? 0,
+          followingCount: d.followingCount ?? 0,
+          postsCount: d.postsCount ?? 0,
+        };
+      });
+      callback(creators);
+    },
+    () => callback([])
+  );
+};
+
 // ─── Firebase Storage Uploads ────────────────────────────────────────────────
 
 /**
