@@ -73,13 +73,24 @@ export default function Register() {
     setLoading(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await registerWithEmail(email.trim(), password, username.trim());
+      
+      // 12-second timeout safety guard so button never hangs on loading forever
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Request timed out. Please check your network connection.")), 12000)
+      );
+
+      await Promise.race([
+        registerWithEmail(email.trim(), password, username.trim()),
+        timeoutPromise,
+      ]);
+
       trackAccountCreated("email");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/create-profile");
     } catch (err: any) {
+      console.error("Account registration error:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(getFriendlyError(err.code));
+      setError(getFriendlyError(err.code) || err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
