@@ -17,8 +17,10 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
-import { AVATAR_GRADIENTS, Comment } from "@/src/mockData";
+import { AVATAR_GRADIENTS, Comment, Post } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { getPostById, subscribeToComments, addCommentToFirestore } from "@/src/services/postService";
+import { auth } from "@/src/firebase";
 
 const SORT_TABS = ["Top", "New", "Following"];
 
@@ -95,13 +97,16 @@ export default function PostDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const post = posts.find((p) => p.id === id);
+  const [post, setPost] = useState<Post | null>(null);
   const [reply, setReply] = useState("");
   const [sort, setSort] = useState(0);
   const [commentsList, setCommentsList] = useState<Comment[]>([]);
 
   useEffect(() => {
     if (!id) return;
+    getPostById(id as string).then((data) => {
+      if (data) setPost(data);
+    });
     const unsubscribe = subscribeToComments(id as string, (liveComments) => {
       setCommentsList(liveComments as any);
     });
