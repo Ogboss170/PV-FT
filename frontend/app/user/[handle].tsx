@@ -8,7 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import Avatar from "@/src/components/Avatar";
 import PostCard from "@/src/components/PostCard";
-import { achievements, AVATAR_GRADIENTS, communities, posts } from "@/src/mockData";
+import { AVATAR_GRADIENTS, Post } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { auth } from "@/src/firebase";
 import {
@@ -20,11 +20,12 @@ import {
 } from "@/src/services/userService";
 import { getUidByUsername } from "@/src/services/usernameService";
 import { trackFollowUser, trackUnfollowUser, trackProfileViewed } from "@/src/services/analyticsService";
+import { subscribeToPostsByUser } from "@/src/services/postService";
 
 const TABS = [
-  { key: "posts", label: "Posts", count: 42 },
-  { key: "media", label: "Media", count: 7 },
-  { key: "replies", label: "Replies", count: 128 },
+  { key: "posts", label: "Posts", count: 0 },
+  { key: "media", label: "Media", count: 0 },
+  { key: "replies", label: "Replies", count: 0 },
 ];
 
 export default function PublicProfile() {
@@ -38,6 +39,7 @@ export default function PublicProfile() {
   const [followLoading, setFollowLoading] = useState(false);
   const [tab, setTab] = useState(0);
   const [targetProfile, setTargetProfile] = useState<PublicUserProfile | null>(null);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
 
   const currentUid = auth?.currentUser?.uid;
   const currentUsername = auth?.currentUser?.displayName ?? "Anonymous";
@@ -56,13 +58,19 @@ export default function PublicProfile() {
     });
   }, [handle]);
 
-  // Live-subscribe to the target user's profile
+  // Live-subscribe to the target user's profile and posts
   useEffect(() => {
     if (!resolvedUid) return;
-    const unsub = subscribeToUserProfile(resolvedUid, (p) => {
+    const unsubProfile = subscribeToUserProfile(resolvedUid, (p) => {
       if (p) setTargetProfile(p);
     });
-    return () => unsub();
+    const unsubPosts = subscribeToPostsByUser(resolvedUid, (posts) => {
+      setUserPosts(posts);
+    });
+    return () => {
+      unsubProfile();
+      unsubPosts();
+    };
   }, [resolvedUid]);
 
   // Check initial follow state
@@ -107,10 +115,7 @@ export default function PublicProfile() {
     }
   }, [currentUid, resolvedUid, following, currentUsername]);
 
-
-
-  const feed = posts.slice(0, 3);
-  const commonCommunities = communities.filter((c) => c.joined).slice(0, 3);
+  const feed = userPosts;
 
   const onMessage = () => {
     router.push({ pathname: "/chat/[id]", params: { id: "new", name: displayHandle } } as any);

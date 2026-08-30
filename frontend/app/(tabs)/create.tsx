@@ -18,11 +18,12 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
-import { AVATAR_GRADIENTS, communities } from "@/src/mockData";
+import { AVATAR_GRADIENTS, Community } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { createPostInFirestore } from "@/src/services/postService";
 import { uploadMediaToFirebase } from "@/src/services/mediaService";
 import { checkRateLimit, evaluateContentSafety } from "@/src/services/safetyService";
+import { subscribeToCommunities } from "@/src/services/communityService";
 import { auth } from "@/src/firebase";
 
 const VISIBILITIES = [
@@ -38,13 +39,24 @@ export default function Create() {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState("");
   const [visibility, setVisibility] = useState(0);
-  const [community] = useState(communities[2]);
+  const [liveCommunities, setLiveCommunities] = useState<Community[]>([]);
+  const [community, setCommunity] = useState<Community | null>(null);
   const [pollMode, setPollMode] = useState(false);
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [submitting, setSubmitting] = useState(false);
   const [images, setImages] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [safetyError, setSafetyError] = useState("");
+
+  React.useEffect(() => {
+    const unsub = subscribeToCommunities((comms) => {
+      setLiveCommunities(comms);
+      if (comms.length > 0 && !community) {
+        setCommunity(comms[0]);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const addPollOption = () => {
     if (pollOptions.length < 4) setPollOptions([...pollOptions, ""]);

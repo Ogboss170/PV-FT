@@ -6,8 +6,9 @@ import { FlatList, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, 
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PostCard from "@/src/components/PostCard";
-import { Post, posts as fallbackPosts } from "@/src/mockData";
+import { Post } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+
 import { subscribeToPosts } from "@/src/services/postService";
 import { ensureAnonymousAuth } from "@/src/services/authService";
 import { auth } from "@/src/firebase";
@@ -18,7 +19,7 @@ export default function Home() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState(0);
-  const [postsList, setPostsList] = useState<Post[]>(fallbackPosts);
+  const [postsList, setPostsList] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -28,15 +29,14 @@ export default function Home() {
     }
 
     const unsubscribe = subscribeToPosts((livePosts) => {
-      if (livePosts.length > 0) {
-        setPostsList(livePosts);
-      }
+      setPostsList(livePosts);
       setLoading(false);
       setRefreshing(false);
     });
 
     return () => unsubscribe();
   }, []);
+
 
   // Filter posts based on selected tab
   const filteredPosts = useMemo(() => {

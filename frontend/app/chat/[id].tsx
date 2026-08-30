@@ -16,7 +16,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
-import { AVATAR_GRADIENTS, conversation as fallbackConversation } from "@/src/mockData";
+import { AVATAR_GRADIENTS } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { subscribeToMessages, sendMessageInFirestore, MessageItem } from "@/src/services/chatService";
 import { auth } from "@/src/firebase";
@@ -27,7 +27,7 @@ export default function Conversation() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const nickname = (name as string) || "ShadowFox_42";
   const [text, setText] = useState("");
-  const [messages, setMessages] = useState<any[]>(fallbackConversation);
+  const [messages, setMessages] = useState<any[]>([]);
   const currentUserId = auth.currentUser?.uid || "current-user";
 
   useEffect(() => {

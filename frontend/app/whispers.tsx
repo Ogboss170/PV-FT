@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Whisper, whispers as initialWhispers } from "@/src/mockData";
+import { Whisper } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { auth } from "@/src/firebase";
 
@@ -77,7 +77,7 @@ export default function Whispers() {
   const [filter, setFilter] = useState(0);
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
-  const [messages, setMessages] = useState<Whisper[]>(initialWhispers);
+  const [messages, setMessages] = useState<Whisper[]>([]);
 
   // ── Real user handle ──────────────────────────────────────
   const user = auth?.currentUser;

@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Community, communities as fallbackCommunities } from "@/src/mockData";
+import { Community } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { subscribeToCommunities, toggleJoinCommunityInFirestore } from "@/src/services/communityService";
 import { auth } from "@/src/firebase";
@@ -26,19 +26,16 @@ export default function Communities() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState(0);
   const [query, setQuery] = useState("");
-  const [communitiesList, setCommunitiesList] = useState<Community[]>(fallbackCommunities);
-  const [joined, setJoined] = useState<Record<string, boolean>>(
-    Object.fromEntries(fallbackCommunities.map((c) => [c.id, !!c.joined]))
-  );
+  const [communitiesList, setCommunitiesList] = useState<Community[]>([]);
+  const [joined, setJoined] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const unsubscribe = subscribeToCommunities((liveComms) => {
-      if (liveComms.length > 0) {
-        setCommunitiesList(liveComms);
-      }
+      setCommunitiesList(liveComms);
     });
     return () => unsubscribe();
   }, []);
+
 
   const handleToggleJoin = async (communityId: string) => {
     const isJoined = !!joined[communityId];

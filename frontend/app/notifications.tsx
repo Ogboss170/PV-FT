@@ -6,7 +6,7 @@ import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
-import { Notification, notifications as fallbackNotifications } from "@/src/mockData";
+import { Notification } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { subscribeToNotifications, markNotificationsAsRead, registerForPushNotifications } from "@/src/services/notificationService";
 import { auth } from "@/src/firebase";
@@ -31,7 +31,7 @@ const COLORS: Record<string, string> = {
 export default function Notifications() {
   const router = useRouter();
   const [tab, setTab] = useState(0);
-  const [notifList, setNotifList] = useState<Notification[]>(fallbackNotifications);
+  const [notifList, setNotifList] = useState<Notification[]>([]);
 
   useEffect(() => {
     registerForPushNotifications();
@@ -40,12 +40,11 @@ export default function Notifications() {
     if (!currentUserId) return;
 
     const unsubscribe = subscribeToNotifications(currentUserId, (liveNotifs) => {
-      if (liveNotifs.length > 0) {
-        setNotifList(liveNotifs);
-      }
+      setNotifList(liveNotifs);
     });
     return () => unsubscribe();
   }, []);
+
 
   return (
     <View style={styles.container} testID="notifications-screen">

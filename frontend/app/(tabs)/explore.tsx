@@ -15,8 +15,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
-import { communities, suggestedCreators, trendingTags } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
+import { subscribeToCommunities, CommunityFull } from "@/src/services/communityService";
+import { Community } from "@/src/mockData";
 
 const TABS = ["🔥 Trending", "For You", "💬 Popular Voices", "Communities"];
 
@@ -25,16 +26,19 @@ export default function Explore() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
   const [query, setQuery] = useState("");
+  const [liveCommunities, setLiveCommunities] = useState<Community[]>([]);
 
-  const filteredTags = trendingTags.filter(
-    (t) => !query || t.tag.toLowerCase().includes(query.toLowerCase()) || t.name.toLowerCase().includes(query.toLowerCase())
-  );
-  const filteredCreators = suggestedCreators.filter(
-    (c) => !query || c.handle.toLowerCase().includes(query.toLowerCase()) || c.title.toLowerCase().includes(query.toLowerCase())
-  );
-  const filteredCommunities = communities.filter(
+  React.useEffect(() => {
+    const unsub = subscribeToCommunities((comms) => {
+      setLiveCommunities(comms);
+    });
+    return () => unsub();
+  }, []);
+
+  const filteredCommunities = liveCommunities.filter(
     (cm) => !query || cm.name.toLowerCase().includes(query.toLowerCase()) || cm.description.toLowerCase().includes(query.toLowerCase())
   );
+
 
   return (
     <View style={styles.container} testID="explore-screen">

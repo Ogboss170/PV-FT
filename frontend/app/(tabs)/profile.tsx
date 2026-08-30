@@ -8,12 +8,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Avatar from "@/src/components/Avatar";
 import PostCard from "@/src/components/PostCard";
 import InviteFriendsModal from "@/src/components/InviteFriendsModal";
-import { AVATAR_GRADIENTS, communities, posts } from "@/src/mockData";
+import { AVATAR_GRADIENTS } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { getUserProfile, UserProfile } from "@/src/services/authService";
 import { subscribeToUserProfile, type PublicUserProfile } from "@/src/services/userService";
 import { auth } from "@/src/firebase";
 import { trackProfileViewed } from "@/src/services/analyticsService";
+import { subscribeToPostsByUser, subscribeToSavedPosts } from "@/src/services/postService";
+import { subscribeToCommunities } from "@/src/services/communityService";
+import { Post, Community } from "@/src/mockData";
 
 const TABS = ["Posts", "Saved", "Communities"] as const;
 
@@ -23,6 +26,9 @@ export default function Profile() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [liveProfile, setLiveProfile] = useState<PublicUserProfile | null>(null);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [recentPosts, setRecentPosts] = useState<Post[]>([]);
+  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+  const [joinedCommunities, setJoinedCommunities] = useState<Community[]>([]);
 
   useEffect(() => {
     trackProfileViewed(true);
@@ -36,10 +42,30 @@ export default function Profile() {
     });
 
     // Live subscription for real-time social counts
-    const unsub = subscribeToUserProfile(uid, (p) => {
+    const unsubProfile = subscribeToUserProfile(uid, (p) => {
       if (p) setLiveProfile(p);
     });
-    return () => unsub();
+
+    // Live subscription for own posts
+    const unsubPosts = subscribeToPostsByUser(uid, setRecentPosts);
+
+    // Live subscription for saved posts
+    const unsubSaved = subscribeToSavedPosts(uid, setSavedPosts);
+
+    // Live subscription for communities (filtered to joined ones)
+    const unsubComm = subscribeToCommunities((all) => {
+      // Communities the current user has joined are tracked client-side via memberIds
+      // For now show all communities the user is a member of (if communityService exposes it)
+      // We'll show all communities until per-user membership is wired up
+      setJoinedCommunities(all);
+    });
+
+    return () => {
+      unsubProfile();
+      unsubPosts();
+      unsubSaved();
+      unsubComm();
+    };
   }, []);
 
   const handle =
@@ -47,10 +73,6 @@ export default function Profile() {
     auth?.currentUser?.displayName ??
     "Anonymous";
   const bio = userProfile?.bio ?? "";
-
-  const joinedCommunities = communities.filter((c) => c.joined);
-  const savedPosts = posts.filter((p) => p.saved);
-  const recentPosts = posts.slice(0, 5);
 
   return (
     <View style={styles.root} testID="profile-screen">

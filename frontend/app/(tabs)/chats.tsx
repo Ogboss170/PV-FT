@@ -13,7 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/src/components/Avatar";
-import { ChatThread, chats as fallbackChats } from "@/src/mockData";
+import { ChatThread } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { subscribeToChatThreads } from "@/src/services/chatService";
 import { auth } from "@/src/firebase";
@@ -25,19 +25,18 @@ export default function Chats() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
   const [query, setQuery] = useState("");
-  const [chatList, setChatList] = useState<ChatThread[]>(fallbackChats);
+  const [chatList, setChatList] = useState<ChatThread[]>([]);
 
   useEffect(() => {
     const currentUserId = auth.currentUser?.uid;
     if (!currentUserId) return;
 
     const unsubscribe = subscribeToChatThreads(currentUserId, (liveThreads) => {
-      if (liveThreads.length > 0) {
-        setChatList(liveThreads);
-      }
+      setChatList(liveThreads);
     });
     return () => unsubscribe();
   }, []);
+
 
   return (
     <View style={styles.container} testID="chats-screen">
