@@ -1,5 +1,57 @@
 import { Platform } from "react-native";
 
+export async function takePictureWithCamera(): Promise<string | null> {
+  if (Platform.OS === "web" && typeof document !== "undefined") {
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.setAttribute("capture", "environment"); // Requests direct camera on mobile web browsers
+      input.onchange = async (e: any) => {
+        const files: File[] = Array.from(e.target.files || []);
+        if (files.length === 0) {
+          resolve(null);
+          return;
+        }
+        const file = files[0];
+        try {
+          const dataUrl = await stripExifAndCompressWeb(file);
+          resolve(dataUrl);
+        } catch (_) {
+          resolve(URL.createObjectURL(file));
+        }
+      };
+      input.oncancel = () => resolve(null);
+      input.click();
+    });
+  }
+
+  // Native Expo Camera
+  try {
+    const ImagePicker = require("expo-image-picker");
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      alert("Permission to access camera is required!");
+      return null;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      exif: false,
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      return null;
+    }
+
+    return result.assets[0].uri;
+  } catch (err) {
+    console.warn("Camera error:", err);
+    return null;
+  }
+}
+
 export async function pickImagesFromGallery(options?: {
   multiple?: boolean;
   maxImages?: number;

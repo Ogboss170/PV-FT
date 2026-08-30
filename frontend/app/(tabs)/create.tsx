@@ -32,7 +32,7 @@ const VISIBILITIES = [
   { key: "community", label: "Community", icon: "shield-half-outline" },
 ];
 
-import { pickImagesFromGallery } from "@/src/utils/imagePicker";
+import { pickImagesFromGallery, takePictureWithCamera } from "@/src/utils/imagePicker";
 
 export default function Create() {
   const router = useRouter();
@@ -76,6 +76,18 @@ export default function Create() {
     const selected = await pickImagesFromGallery({ multiple: true, maxImages: maxToPick });
     if (selected.length > 0) {
       setImages((prev) => [...prev, ...selected].slice(0, 4));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    if (images.length >= 4) {
+      alert("You can attach a maximum of 4 images per post.");
+      return;
+    }
+    const photoUri = await takePictureWithCamera();
+    if (photoUri) {
+      setImages((prev) => [...prev, photoUri].slice(0, 4));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
@@ -370,6 +382,9 @@ export default function Create() {
             style={StyleSheet.absoluteFillObject}
           />
           <View style={styles.toolbarRow}>
+            <TouchableOpacity style={styles.toolBtn} onPress={handleTakePhoto} testID="attach-camera-btn">
+              <Ionicons name="camera-outline" size={22} color={images.length > 0 ? colors.brand : colors.onSurfaceMuted} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={handlePickImage} testID="attach-image-btn">
               <Ionicons name="image-outline" size={22} color={images.length > 0 ? colors.brand : colors.onSurfaceMuted} />
             </TouchableOpacity>
