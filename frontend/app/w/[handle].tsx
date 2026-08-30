@@ -31,6 +31,7 @@ const MAX = 500;
 import { evaluateAIModeration, ModerationResult } from "@/src/services/aiModerationService";
 import { createModerationEventInFirestore } from "@/src/services/moderationService";
 import { checkRateLimit } from "@/src/services/safetyService";
+import { sendWhisperInFirestore } from "@/src/services/whisperService";
 
 export default function WhisperSend() {
   const router = useRouter();
@@ -69,6 +70,9 @@ export default function WhisperSend() {
       await createModerationEventInFirestore(`msg_${Date.now()}`, "anonymous_message", result);
     } else if (result.decision === "BLOCK") {
       await createModerationEventInFirestore(`msg_${Date.now()}`, "anonymous_message", result);
+    } else {
+      // Allow -> Write whisper to Firestore
+      await sendWhisperInFirestore(displayHandle, message.trim(), mood);
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

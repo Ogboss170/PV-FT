@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Whisper } from "@/src/mockData";
 import { colors, font, radii, spacing } from "@/src/theme";
 import { auth } from "@/src/firebase";
+import { subscribeToWhispers } from "@/src/services/whisperService";
 
 const BASE_URL = "https://privatevoices.vercel.app/w";
 
@@ -87,6 +88,14 @@ export default function Whispers() {
       : user?.email?.split("@")[0] ?? user?.uid ?? "anonymous";
   const fullLink = `${BASE_URL}/@${handle}`;
   // ─────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!handle) return;
+    const unsub = subscribeToWhispers(handle, user?.uid, (liveWhispers) => {
+      setMessages(liveWhispers as Whisper[]);
+    });
+    return () => unsub();
+  }, [handle, user?.uid]);
 
   const stats = useMemo(() => {
     const total = messages.length;
